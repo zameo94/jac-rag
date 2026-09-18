@@ -9,7 +9,7 @@ async def test_health_returns_ok(client):
 
 
 def test_app_metadata():
-    assert app.title == "jac-rag"
+    assert app.title == "Jac Rag"
     assert app.version == "0.1.0"
 
 

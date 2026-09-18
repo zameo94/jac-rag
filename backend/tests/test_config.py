@@ -39,7 +39,7 @@ def test_settings_requires_jwt_secret(monkeypatch):
 
 
 def test_app_metadata_are_code_constants():
-    assert APP_NAME == "jac-rag"
+    assert APP_NAME == "Jac Rag"
     assert APP_VERSION == "0.1.0"
 
 
