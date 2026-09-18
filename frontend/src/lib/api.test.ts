@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api-error";
 import { api } from "@/lib/api";
-import { tokenStore } from "@/lib/token-store";
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -15,7 +14,6 @@ function mockFetch(status: number, body: unknown) {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  tokenStore.clear();
 });
 
 describe("api client", () => {
@@ -27,26 +25,36 @@ describe("api client", () => {
     expect(user).toEqual({ id: 1, email: "a@b.it" });
   });
 
-  it("adds the bearer token when present", async () => {
+  it("sends requests with same-origin credentials", async () => {
     const fetchMock = mockFetch(200, { id: 1 });
     vi.stubGlobal("fetch", fetchMock);
-    tokenStore.set("access-token", "refresh-token");
 
     await api.auth.me();
 
     const [, init] = fetchMock.mock.calls[0];
-    expect(init.headers.Authorization).toBe("Bearer access-token");
+    expect(init.credentials).toBe("same-origin");
   });
 
-  it("does not add authorization for login", async () => {
-    const fetchMock = mockFetch(200, { access_token: "a", refresh_token: "b" });
+  it("does not send an Authorization header", async () => {
+    const fetchMock = mockFetch(200, { id: 1 });
     vi.stubGlobal("fetch", fetchMock);
-    tokenStore.set("access-token", "refresh-token");
 
-    await api.auth.login("a@b.it", "password");
+    await api.auth.me();
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers.Authorization).toBeUndefined();
+  });
+
+  it("calls login with a JSON body and no auth header", async () => {
+    const fetchMock = mockFetch(200, { id: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.auth.login("a@b.it", "password");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/auth/login");
+    expect(init.headers.Authorization).toBeUndefined();
+    expect(JSON.parse(init.body)).toEqual({ email: "a@b.it", password: "password" });
   });
 
   it("throws ApiError with code from payload", async () => {

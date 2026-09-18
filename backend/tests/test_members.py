@@ -2,17 +2,9 @@ from sqlmodel import select
 
 from app.models import Membership
 from app.schemas.membership import MembershipRole
+from tests.helpers import register_and_login, user_id_for
 
-AUTH_URL = "/api/v1/auth"
 TENANTS_URL = "/api/v1/tenants"
-
-
-async def register_and_login(client, email: str) -> dict[str, str]:
-    await client.post(f"{AUTH_URL}/register", json={"email": email, "password": "supersecret"})
-    response = await client.post(
-        f"{AUTH_URL}/login", json={"email": email, "password": "supersecret"}
-    )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 async def create_tenant(client, headers, name="Acme", slug="acme"):
@@ -26,10 +18,6 @@ async def add_membership(session_factory, tenant_id, user_id, role):
     async with session_factory() as session:
         session.add(Membership(user_id=user_id, tenant_id=tenant_id, role=role))
         await session.commit()
-
-
-async def user_id_for(client, headers) -> int:
-    return (await client.get(f"{AUTH_URL}/me", headers=headers)).json()["id"]
 
 
 async def test_list_members_includes_owner(client):
@@ -59,6 +47,7 @@ async def test_list_members_requires_membership(client):
 async def test_list_members_requires_authentication(client):
     owner = await register_and_login(client, "owner@example.com")
     tenant = await create_tenant(client, owner)
+    client.cookies.clear()
 
     response = await client.get(f"{TENANTS_URL}/{tenant['id']}/members")
 

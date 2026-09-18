@@ -44,6 +44,13 @@ def test_refresh_token_round_trip():
     assert security.decode_token(token, security.REFRESH_TOKEN_TYPE) == 7
 
 
+def test_tokens_are_unique_even_within_the_same_second():
+    first = security.create_access_token(1)
+    second = security.create_access_token(1)
+
+    assert first != second
+
+
 def test_decode_token_rejects_wrong_type():
     token = security.create_access_token(1)
 

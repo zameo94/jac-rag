@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "@/lib/api";
-import { tokenStore } from "@/lib/token-store";
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({
@@ -14,7 +13,6 @@ function mockFetch(status: number, body: unknown) {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  tokenStore.clear();
 });
 
 describe("tenants api", () => {
@@ -110,5 +108,30 @@ describe("documents api", () => {
 
     expect(doc.status).toBe("ready");
     expect(fetchMock.mock.calls[0][0]).toContain("/tenants/3/documents/5");
+  });
+});
+
+describe("auth api", () => {
+  it("refreshes the session without a body", async () => {
+    const fetchMock = mockFetch(200, { id: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.auth.refresh();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/auth/refresh");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+  });
+
+  it("logs out with POST", async () => {
+    const fetchMock = mockFetch(204, null);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.auth.logout();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/auth/logout");
+    expect(init.method).toBe("POST");
   });
 });

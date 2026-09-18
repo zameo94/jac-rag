@@ -8,7 +8,6 @@ const logout = vi.fn();
 const selectTenant = vi.fn();
 
 const state = vi.hoisted(() => ({
-  user: { id: 1, email: "user@example.com" } as { id: number; email: string } | null,
   tenants: [
     { id: 1, name: "Acme", slug: "acme" },
     { id: 2, name: "Beta", slug: "beta" },
@@ -24,8 +23,6 @@ vi.mock("next-intl", () => ({
       "nav.members": "Members",
       "nav.settings": "Settings",
       "auth.logout": "Log out",
-      "auth.goLogin": "Sign in",
-      "auth.goRegister": "Sign up",
       "tenants.switch": "Switch workspace",
     };
     return (key: string) => messages[`${namespace}.${key}`] ?? key;
@@ -42,7 +39,7 @@ vi.mock("@/i18n/navigation", () => ({
 }));
 
 vi.mock("@/features/auth/AuthProvider", () => ({
-  useAuth: () => ({ user: state.user, logout }),
+  useAuth: () => ({ logout }),
 }));
 
 vi.mock("@/features/tenants/TenantProvider", () => ({
@@ -56,7 +53,6 @@ vi.mock("@/features/tenants/TenantProvider", () => ({
 beforeEach(() => {
   logout.mockClear();
   selectTenant.mockClear();
-  state.user = { id: 1, email: "user@example.com" };
   state.activeTenantId = 1;
 });
 
@@ -121,25 +117,6 @@ describe("OptionsMenu", () => {
 
     expect(logout).toHaveBeenCalled();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-  });
-
-  it("shows only auth links for guests", async () => {
-    state.user = null;
-    const user = userEvent.setup();
-    render(<OptionsMenu />);
-
-    await user.click(screen.getByRole("button", { name: "Menu" }));
-
-    expect(screen.getByRole("menuitem", { name: "Sign in" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    expect(screen.getByRole("menuitem", { name: "Sign up" })).toHaveAttribute(
-      "href",
-      "/register",
-    );
-    expect(screen.queryByRole("menuitem", { name: "Documents" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Log out" })).not.toBeInTheDocument();
   });
 
   it("closes on Escape", async () => {

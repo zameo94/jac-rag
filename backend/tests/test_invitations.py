@@ -6,18 +6,10 @@ from app.core import security
 from app.core.datetimes import utcnow
 from app.models import Invitation, Membership
 from app.schemas.membership import MembershipRole
+from tests.helpers import register_and_login, user_id_for
 
-AUTH_URL = "/api/v1/auth"
 TENANTS_URL = "/api/v1/tenants"
 INVITATIONS_URL = "/api/v1/invitations"
-
-
-async def register_and_login(client, email: str) -> dict[str, str]:
-    await client.post(f"{AUTH_URL}/register", json={"email": email, "password": "supersecret"})
-    response = await client.post(
-        f"{AUTH_URL}/login", json={"email": email, "password": "supersecret"}
-    )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 async def create_tenant(client, headers, name="Acme", slug="acme"):
@@ -33,10 +25,6 @@ async def invite(client, headers, tenant_id, email, role="MEMBER"):
         json={"email": email, "role": role},
         headers=headers,
     )
-
-
-async def user_id_for(client, headers) -> int:
-    return (await client.get(f"{AUTH_URL}/me", headers=headers)).json()["id"]
 
 
 async def test_owner_can_create_invitation(client):
@@ -213,6 +201,7 @@ async def test_accept_invitation_requires_authentication(client):
     owner = await register_and_login(client, "owner@example.com")
     tenant = await create_tenant(client, owner)
     token = (await invite(client, owner, tenant["id"], "newbie@example.com")).json()["token"]
+    client.cookies.clear()
 
     response = await client.post(f"{INVITATIONS_URL}/{token}/accept")
 

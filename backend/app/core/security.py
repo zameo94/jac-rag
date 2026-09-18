@@ -40,6 +40,7 @@ def _create_token(user_id: int, token_type: str, expires_delta: timedelta) -> st
     payload = {
         "sub": str(user_id),
         "type": token_type,
+        "jti": secrets.token_urlsafe(16),
         "iat": issued_at,
         "exp": issued_at + expires_delta,
     }

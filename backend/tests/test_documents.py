@@ -1,15 +1,7 @@
 from app.core.config import get_settings
+from tests.helpers import register_and_login, user_id_for
 
-AUTH_URL = "/api/v1/auth"
 TENANTS_URL = "/api/v1/tenants"
-
-
-async def register_and_login(client, email: str) -> dict[str, str]:
-    await client.post(f"{AUTH_URL}/register", json={"email": email, "password": "supersecret"})
-    response = await client.post(
-        f"{AUTH_URL}/login", json={"email": email, "password": "supersecret"}
-    )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 async def create_tenant(client, headers, name="Acme", slug="acme"):
@@ -102,7 +94,7 @@ async def test_upload_requires_admin_role(client, session_factory):
     owner = await register_and_login(client, "owner@example.com")
     tenant = await create_tenant(client, owner)
     member = await register_and_login(client, "member@example.com")
-    member_id = (await client.get(f"{AUTH_URL}/me", headers=member)).json()["id"]
+    member_id = await user_id_for(client, member)
     async with session_factory() as session:
         session.add(
             Membership(user_id=member_id, tenant_id=tenant["id"], role=MembershipRole.MEMBER)
@@ -129,6 +121,7 @@ async def test_upload_requires_membership(client):
 async def test_upload_requires_authentication(client):
     owner = await register_and_login(client, "owner@example.com")
     tenant = await create_tenant(client, owner)
+    client.cookies.clear()
 
     response = await client.post(
         f"{TENANTS_URL}/{tenant['id']}/documents",
@@ -205,7 +198,7 @@ async def test_delete_document_requires_admin_role(client, session_factory):
     tenant = await create_tenant(client, owner)
     document = (await upload(client, owner, tenant["id"])).json()
     member = await register_and_login(client, "member@example.com")
-    member_id = (await client.get(f"{AUTH_URL}/me", headers=member)).json()["id"]
+    member_id = await user_id_for(client, member)
     async with session_factory() as session:
         session.add(
             Membership(user_id=member_id, tenant_id=tenant["id"], role=MembershipRole.MEMBER)

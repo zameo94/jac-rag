@@ -28,13 +28,3 @@ class LoginRequest(SQLModel):
     @classmethod
     def normalize_email(cls, value):
         return normalize_email_value(value)
-
-
-class RefreshRequest(SQLModel):
-    refresh_token: str
-
-
-class TokenPair(SQLModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
