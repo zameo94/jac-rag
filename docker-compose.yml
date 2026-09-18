@@ -1,0 +1,153 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: jac_rag_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:?set DB_USER in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME in .env}
+      TZ: ${TZ:?set TZ in .env}
+    ports:
+      - "${DB_PORT:?set DB_PORT in .env}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?} -d ${DB_NAME:?}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: jac_rag_qdrant
+    restart: always
+    ports:
+      - "${QDRANT_PORT:?set QDRANT_PORT in .env}:6333"
+      - "${QDRANT_GRPC_PORT:?set QDRANT_GRPC_PORT in .env}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  redis:
+    image: redis:7-alpine
+    container_name: jac_rag_redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:?set REDIS_PORT in .env}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: jac_rag_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - FASTEMBED_CACHE_PATH=/data/fastembed
+      - ENVIRONMENT=${ENVIRONMENT:?set ENVIRONMENT in .env}
+      - SQL_ECHO=${SQL_ECHO:?set SQL_ECHO in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:?}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:?}
+      - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
+      - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:?}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:?}
+      - CHUNK_SIZE=${CHUNK_SIZE:?}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:?}
+      - MIN_CHARS_PER_PAGE=${MIN_CHARS_PER_PAGE:?}
+      - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:?}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:?}
+    ports:
+      - "${BACKEND_PORT:?set BACKEND_PORT in .env}:8000"
+    volumes:
+      - storage_data:/data/storage
+      - fastembed_cache:/data/fastembed
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  worker:
+    build: ./backend
+    container_name: jac_rag_worker
+    restart: always
+    command: taskiq worker app.core.tkq:broker --fs-discover
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - FASTEMBED_CACHE_PATH=/data/fastembed
+      - ENVIRONMENT=${ENVIRONMENT:?set ENVIRONMENT in .env}
+      - SQL_ECHO=${SQL_ECHO:?set SQL_ECHO in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:?}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:?}
+      - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
+      - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:?}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:?}
+      - CHUNK_SIZE=${CHUNK_SIZE:?}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:?}
+      - MIN_CHARS_PER_PAGE=${MIN_CHARS_PER_PAGE:?}
+      - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:?}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:?}
+    volumes:
+      - storage_data:/data/storage
+      - fastembed_cache:/data/fastembed
+    depends_on:
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+    container_name: jac_rag_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+    ports:
+      - "${FRONTEND_PORT:?set FRONTEND_PORT in .env}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: jac_rag_postgres_volume
+  qdrant_data:
+    name: jac_rag_qdrant_volume
+  redis_data:
+    name: jac_rag_redis_volume
+  storage_data:
+    name: jac_rag_storage_volume
+  fastembed_cache:
+    name: jac_rag_fastembed_volume

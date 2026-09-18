@@ -1,0 +1,139 @@
+{
+  "common": {
+    "appName": "jac-rag",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "create": "Create",
+    "back": "Back",
+    "logout": "Log out",
+    "language": "Language",
+    "email": "Email",
+    "password": "Password",
+    "role": "Role",
+    "status": "Status",
+    "actions": "Actions",
+    "confirmDelete": "Are you sure you want to delete?"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Could not reach the server.",
+    "EMAIL_ALREADY_REGISTERED": "An account with this email already exists.",
+    "INVALID_CREDENTIALS": "Incorrect email or password.",
+    "ACCOUNT_DISABLED": "This account is disabled.",
+    "NOT_AUTHENTICATED": "You must sign in.",
+    "INVALID_TOKEN": "Session expired. Please sign in again.",
+    "INVALID_REFRESH_TOKEN": "Session expired. Please sign in again.",
+    "VALIDATION_ERROR": "The submitted data is not valid.",
+    "TENANT_NOT_FOUND": "Workspace not found.",
+    "SLUG_ALREADY_TAKEN": "A workspace with this identifier already exists.",
+    "INVALID_SLUG": "Invalid workspace identifier.",
+    "NOT_A_MEMBER": "You do not have access to this workspace.",
+    "INSUFFICIENT_ROLE": "Your role does not allow this action.",
+    "MEMBER_NOT_FOUND": "User not found in this workspace.",
+    "CANNOT_MODIFY_OWNER": "The owner role cannot be modified.",
+    "CANNOT_REMOVE_OWNER": "The owner cannot be removed.",
+    "CANNOT_REMOVE_SELF": "You cannot remove yourself from the workspace.",
+    "ALREADY_A_MEMBER": "This user is already a member of the workspace.",
+    "INVITATION_ALREADY_PENDING": "A pending invitation already exists for this email.",
+    "INVITATION_NOT_FOUND": "Invitation not found.",
+    "INVITATION_ALREADY_ACCEPTED": "This invitation has already been accepted.",
+    "INVITATION_EXPIRED": "This invitation has expired.",
+    "INVITATION_EMAIL_MISMATCH": "The invitation was issued for a different email.",
+    "UNSUPPORTED_FILE_TYPE": "Unsupported format. PDF, DOCX, TXT and MD are allowed.",
+    "EMPTY_FILE": "The uploaded file is empty.",
+    "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
+    "DOCUMENT_NOT_FOUND": "Document not found.",
+    "HTTP_ERROR": "Unexpected server error."
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "registerTitle": "Create an account",
+    "loginCta": "Sign in",
+    "registerCta": "Sign up",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "goRegister": "Sign up",
+    "goLogin": "Sign in",
+    "logout": "Log out"
+  },
+  "onboarding": {
+    "title": "Get started",
+    "subtitle": "Create your workspace or join an existing one with an invite code.",
+    "createTenant": "Create a workspace",
+    "joinWithCode": "Join with a code",
+    "tenantName": "Workspace name",
+    "tenantSlug": "Identifier (optional)",
+    "createCta": "Create workspace",
+    "inviteCode": "Invite code",
+    "acceptCta": "Accept invitation"
+  },
+  "tenants": {
+    "title": "Your workspaces",
+    "switch": "Switch workspace",
+    "new": "New workspace",
+    "name": "Name",
+    "slug": "Identifier",
+    "defaultLocale": "Default language",
+    "answerMode": "Answer mode",
+    "strict": "Strict (documents only)",
+    "assistive": "Assistive (allows general answers)"
+  },
+  "documents": {
+    "title": "Documents",
+    "upload": "Upload document",
+    "uploading": "Uploading...",
+    "empty": "No documents uploaded.",
+    "filename": "File name",
+    "size": "Size",
+    "chunks": "Chunks",
+    "language": "Language",
+    "status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "ready": "Ready",
+      "failed": "Failed"
+    },
+    "errorNoTextLayer": "The PDF looks like a scan without an extractable text layer.",
+    "supported": "Supported formats: PDF, DOCX, TXT, MD"
+  },
+  "members": {
+    "title": "Members",
+    "invite": "Invite",
+    "inviteEmail": "Email to invite",
+    "inviteRole": "Role",
+    "inviteCta": "Generate invitation",
+    "inviteTokenTitle": "Invitation created",
+    "inviteTokenHint": "Share this code with the invited person. It will not be shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "remove": "Remove",
+    "changeRole": "Change role",
+    "roles": {
+      "OWNER": "Owner",
+      "ADMIN": "Admin",
+      "MEMBER": "Member"
+    }
+  },
+  "settings": {
+    "title": "LLM settings",
+    "provider": "Provider",
+    "model": "Model",
+    "baseUrl": "Base URL",
+    "apiKey": "API key",
+    "comingSoon": "Coming soon"
+  },
+  "playground": {
+    "title": "Chat playground",
+    "placeholder": "Ask a question about your documents...",
+    "send": "Send",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "documents": "Documents",
+    "members": "Members",
+    "settings": "Settings",
+    "playground": "Playground"
+  }
+}

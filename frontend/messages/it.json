@@ -1,0 +1,139 @@
+{
+  "common": {
+    "appName": "jac-rag",
+    "loading": "Caricamento...",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "create": "Crea",
+    "back": "Indietro",
+    "logout": "Esci",
+    "language": "Lingua",
+    "email": "Email",
+    "password": "Password",
+    "role": "Ruolo",
+    "status": "Stato",
+    "actions": "Azioni",
+    "confirmDelete": "Sei sicuro di voler eliminare?"
+  },
+  "errors": {
+    "generic": "Si è verificato un errore. Riprova.",
+    "network": "Impossibile contattare il server.",
+    "EMAIL_ALREADY_REGISTERED": "Esiste già un account con questa email.",
+    "INVALID_CREDENTIALS": "Email o password non corretti.",
+    "ACCOUNT_DISABLED": "Questo account è disabilitato.",
+    "NOT_AUTHENTICATED": "Devi effettuare l'accesso.",
+    "INVALID_TOKEN": "Sessione scaduta. Effettua di nuovo l'accesso.",
+    "INVALID_REFRESH_TOKEN": "Sessione scaduta. Effettua di nuovo l'accesso.",
+    "VALIDATION_ERROR": "I dati inseriti non sono validi.",
+    "TENANT_NOT_FOUND": "Workspace non trovato.",
+    "SLUG_ALREADY_TAKEN": "Esiste già un workspace con questo identificativo.",
+    "INVALID_SLUG": "Identificativo del workspace non valido.",
+    "NOT_A_MEMBER": "Non hai accesso a questo workspace.",
+    "INSUFFICIENT_ROLE": "Il tuo ruolo non consente questa azione.",
+    "MEMBER_NOT_FOUND": "Utente non trovato in questo workspace.",
+    "CANNOT_MODIFY_OWNER": "Il ruolo del proprietario non può essere modificato.",
+    "CANNOT_REMOVE_OWNER": "Il proprietario non può essere rimosso.",
+    "CANNOT_REMOVE_SELF": "Non puoi rimuovere te stesso dal workspace.",
+    "ALREADY_A_MEMBER": "Questo utente è già membro del workspace.",
+    "INVITATION_ALREADY_PENDING": "Esiste già un invito in sospeso per questa email.",
+    "INVITATION_NOT_FOUND": "Invito non trovato.",
+    "INVITATION_ALREADY_ACCEPTED": "Questo invito è già stato accettato.",
+    "INVITATION_EXPIRED": "Questo invito è scaduto.",
+    "INVITATION_EMAIL_MISMATCH": "L'invito è stato emesso per un'altra email.",
+    "UNSUPPORTED_FILE_TYPE": "Formato non supportato. Sono ammessi PDF, DOCX, TXT e MD.",
+    "EMPTY_FILE": "Il file caricato è vuoto.",
+    "FILE_TOO_LARGE": "Il file supera la dimensione massima consentita.",
+    "DOCUMENT_NOT_FOUND": "Documento non trovato.",
+    "HTTP_ERROR": "Errore imprevisto dal server."
+  },
+  "auth": {
+    "loginTitle": "Accedi",
+    "registerTitle": "Crea un account",
+    "loginCta": "Accedi",
+    "registerCta": "Registrati",
+    "noAccount": "Non hai un account?",
+    "hasAccount": "Hai già un account?",
+    "goRegister": "Registrati",
+    "goLogin": "Accedi",
+    "logout": "Esci"
+  },
+  "onboarding": {
+    "title": "Inizia",
+    "subtitle": "Crea il tuo workspace oppure unisciti a uno esistente con un codice invito.",
+    "createTenant": "Crea un workspace",
+    "joinWithCode": "Unisciti con un codice",
+    "tenantName": "Nome del workspace",
+    "tenantSlug": "Identificativo (opzionale)",
+    "createCta": "Crea workspace",
+    "inviteCode": "Codice invito",
+    "acceptCta": "Accetta invito"
+  },
+  "tenants": {
+    "title": "I tuoi workspace",
+    "switch": "Cambia workspace",
+    "new": "Nuovo workspace",
+    "name": "Nome",
+    "slug": "Identificativo",
+    "defaultLocale": "Lingua predefinita",
+    "answerMode": "Modalità risposta",
+    "strict": "Strict (solo dai documenti)",
+    "assistive": "Assistive (consente risposte generali)"
+  },
+  "documents": {
+    "title": "Documenti",
+    "upload": "Carica documento",
+    "uploading": "Caricamento...",
+    "empty": "Nessun documento caricato.",
+    "filename": "Nome file",
+    "size": "Dimensione",
+    "chunks": "Chunk",
+    "language": "Lingua",
+    "status": {
+      "pending": "In attesa",
+      "processing": "In elaborazione",
+      "ready": "Pronto",
+      "failed": "Fallito"
+    },
+    "errorNoTextLayer": "Il PDF sembra una scansione senza testo estraibile.",
+    "supported": "Formati supportati: PDF, DOCX, TXT, MD"
+  },
+  "members": {
+    "title": "Membri",
+    "invite": "Invita",
+    "inviteEmail": "Email da invitare",
+    "inviteRole": "Ruolo",
+    "inviteCta": "Genera invito",
+    "inviteTokenTitle": "Invito creato",
+    "inviteTokenHint": "Condividi questo codice con la persona invitata. Non sarà più visibile.",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "remove": "Rimuovi",
+    "changeRole": "Cambia ruolo",
+    "roles": {
+      "OWNER": "Proprietario",
+      "ADMIN": "Amministratore",
+      "MEMBER": "Membro"
+    }
+  },
+  "settings": {
+    "title": "Impostazioni LLM",
+    "provider": "Provider",
+    "model": "Modello",
+    "baseUrl": "Base URL",
+    "apiKey": "API key",
+    "comingSoon": "Presto disponibile"
+  },
+  "playground": {
+    "title": "Playground chat",
+    "placeholder": "Fai una domanda sui tuoi documenti...",
+    "send": "Invia",
+    "comingSoon": "Presto disponibile"
+  },
+  "nav": {
+    "documents": "Documenti",
+    "members": "Membri",
+    "settings": "Impostazioni",
+    "playground": "Playground"
+  }
+}
