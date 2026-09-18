@@ -3,7 +3,7 @@ from functools import lru_cache
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-APP_NAME = "Jac Rag"
+APP_NAME = "jac-rag"
 APP_VERSION = "0.1.0"
 DEFAULT_JWT_SECRET = "dev-insecure-secret-change-me-0123456789"
 MIN_JWT_SECRET_LENGTH = 32
