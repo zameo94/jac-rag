@@ -127,6 +127,11 @@ def render_report(
         for key, value in report.per_category[category].items():
             lines.append(f"    {key}: {value:.4f}")
     lines.append("")
+    lines.append("Rank distribution (first relevant chunk)")
+    total = len(report.outcomes) or 1
+    for bucket, count in report.rank_distribution.items():
+        lines.append(f"  rank {bucket}: {count} ({count / total:.4f})")
+    lines.append("")
     lines.append("Failure analysis")
     for key, value in analysis.counts().items():
         lines.append(f"  {key}: {value}")

@@ -191,7 +191,9 @@ async def main() -> None:
                 chunks=index.indexed_chunks,
             )
         else:
-            report = await evaluate_async(list(dataset.queries), index, k_values=k_values)
+            report = await evaluate_async(
+                list(dataset.queries), index, k_values=k_values, limit=max_k
+            )
             analysis = analyze(
                 list(dataset.queries),
                 report,

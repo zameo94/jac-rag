@@ -1,0 +1,16 @@
+Domande frequenti Nordwind
+
+Come richiedo un reso?
+Il reso puo essere richiesto entro quarantacinque giorni dalla consegna, scrivendo all'indirizzo resi@nordwind.example.
+
+Qual e la garanzia dei prodotti?
+Tutti i prodotti hanno una garanzia di trentasei mesi a partire dalla data di acquisto.
+
+Come contatto l'assistenza?
+L'assistenza tecnica risponde all'indirizzo supporto@nordwind.example nei giorni feriali dalle 8:00 alle 18:00.
+
+Serve un account per usare l'app?
+Si, per usare l'applicazione mobile e necessario un account associato a un tenant Nordwind Cloud.
+
+Come aggiorno il firmware di un gateway?
+Il firmware si aggiorna automaticamente ogni notte. Un aggiornamento manuale e possibile dalla console web.

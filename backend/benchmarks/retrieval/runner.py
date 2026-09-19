@@ -43,6 +43,9 @@ class CaseOutcome:
     hits: list[Hit] = field(default_factory=list)
 
 
+RANK_BUCKETS = ("1", "2-5", "6-10", "11-20", ">20/not_found")
+
+
 @dataclass
 class Report:
     k_values: tuple[int, ...]
@@ -50,6 +53,7 @@ class Report:
     overall: dict[str, float] = field(default_factory=dict)
     per_category: dict[str, dict[str, float]] = field(default_factory=dict)
     per_category_counts: dict[str, int] = field(default_factory=dict)
+    rank_distribution: dict[str, int] = field(default_factory=dict)
 
     def render(self) -> str:
         lines = [f"cases: {len(self.outcomes)}  k={self.k_values}"]
@@ -59,6 +63,10 @@ class Report:
             lines.append(
                 f"{category:14s} (n={count:2d}) "
                 + "  ".join(f"{k}={v:.4f}" for k, v in scores.items())
+            )
+        if self.rank_distribution:
+            lines.append(
+                "RANK " + "  ".join(f"{b}={c}" for b, c in self.rank_distribution.items())
             )
         return "\n".join(lines)
 
@@ -88,6 +96,31 @@ def _scores(outcomes: list[CaseOutcome], k_values: tuple[int, ...]) -> dict[str,
     for k in k_values:
         scores[f"recall@{k}"] = mean(outcome.recall[k] for outcome in outcomes)
     return scores
+
+
+def rank_bucket(rank: int | None) -> str:
+    """Bucket the rank of the first relevant chunk.
+
+    ``None`` means the ground truth was not retrieved within the retrieval
+    window; ranks beyond 20 share the same bucket. This is a descriptive
+    diagnostic and does not affect the recall/MRR rules.
+    """
+    if rank is None or rank > 20:
+        return ">20/not_found"
+    if rank == 1:
+        return "1"
+    if rank <= 5:
+        return "2-5"
+    if rank <= 10:
+        return "6-10"
+    return "11-20"
+
+
+def rank_distribution(outcomes: list[CaseOutcome]) -> dict[str, int]:
+    counts = {bucket: 0 for bucket in RANK_BUCKETS}
+    for outcome in outcomes:
+        counts[rank_bucket(outcome.rank)] += 1
+    return counts
 
 
 def _build_report(
@@ -125,6 +158,7 @@ def _build_report(
         overall=_scores(outcomes, k_values),
         per_category=per_category,
         per_category_counts=per_category_counts,
+        rank_distribution=rank_distribution(outcomes),
     )
 
 
@@ -132,11 +166,12 @@ def evaluate(
     cases: list[QueryCase],
     index: RetrievalIndex,
     k_values: tuple[int, ...] = (1, 5, 10),
+    limit: int | None = None,
 ) -> Report:
     if not cases:
         raise ValueError("no cases to evaluate")
-    max_k = max(k_values)
-    results = [(case, index.search(case.query, limit=max_k)) for case in cases]
+    window = max(k_values) if limit is None else max(limit, max(k_values))
+    results = [(case, index.search(case.query, limit=window)) for case in cases]
     return _build_report(cases, results, k_values)
 
 
@@ -144,12 +179,13 @@ async def evaluate_async(
     cases: list[QueryCase],
     index: AsyncRetrievalIndex,
     k_values: tuple[int, ...] = (1, 5, 10),
+    limit: int | None = None,
 ) -> Report:
     if not cases:
         raise ValueError("no cases to evaluate")
-    max_k = max(k_values)
+    window = max(k_values) if limit is None else max(limit, max(k_values))
     results = []
     for case in cases:
-        hits = await index.search(case.query, limit=max_k)
+        hits = await index.search(case.query, limit=window)
         results.append((case, hits))
     return _build_report(cases, results, k_values)

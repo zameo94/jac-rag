@@ -10,7 +10,15 @@ from benchmarks.retrieval.analysis import (
 )
 from benchmarks.retrieval.index import IndexedChunk
 from benchmarks.retrieval.metrics import mean, recall_at_k, reciprocal_rank
-from benchmarks.retrieval.runner import Hit, evaluate, is_relevant, matches
+from benchmarks.retrieval.runner import (
+    RANK_BUCKETS,
+    Hit,
+    evaluate,
+    is_relevant,
+    matches,
+    rank_bucket,
+    rank_distribution,
+)
 from benchmarks.retrieval.schema import (
     Category,
     QueryCase,
@@ -221,6 +229,73 @@ def test_report_render_contains_sections():
 
     assert "OVERALL" in rendered
     assert "table" in rendered
+
+
+def test_rank_bucket_boundaries():
+    assert rank_bucket(1) == "1"
+    assert rank_bucket(2) == "2-5"
+    assert rank_bucket(5) == "2-5"
+    assert rank_bucket(6) == "6-10"
+    assert rank_bucket(10) == "6-10"
+    assert rank_bucket(11) == "11-20"
+    assert rank_bucket(20) == "11-20"
+    assert rank_bucket(21) == ">20/not_found"
+    assert rank_bucket(None) == ">20/not_found"
+
+
+def test_rank_distribution_counts_outcomes():
+    cases = [
+        QueryCase(query="q1", category=Category.PROSE, expected_substrings=("a",)),
+        QueryCase(query="q2", category=Category.PROSE, expected_substrings=("b",)),
+        QueryCase(query="q3", category=Category.PROSE, expected_substrings=("c",)),
+    ]
+    index = FakeIndex(
+        {
+            "q1": [hit("1", "d", "a")],
+            "q2": [hit("1", "d", "x"), hit("2", "d", "b")],
+            "q3": [hit("1", "d", "nope")],
+        }
+    )
+
+    report = evaluate(cases, index, k_values=(1, 5))
+
+    assert list(report.rank_distribution) == list(RANK_BUCKETS)
+    assert report.rank_distribution["1"] == 1
+    assert report.rank_distribution["2-5"] == 1
+    assert report.rank_distribution[">20/not_found"] == 1
+    assert sum(report.rank_distribution.values()) == len(cases)
+
+
+def test_rank_distribution_rendered_in_report():
+    index = FakeIndex({"qa": [hit("1", "d", "target")]})
+    case = QueryCase(query="qa", category=Category.TABLE, expected_substrings=("target",))
+
+    report = evaluate([case], index, k_values=(1,))
+    rendered = report.render()
+
+    assert "RANK" in rendered
+
+
+def test_evaluate_window_extends_rank_distribution():
+    noise = [hit(str(i), "d", f"noise {i}") for i in range(1, 12)]
+    index = FakeIndex({"qa": noise + [hit("12", "d", "the target")]})
+    case = QueryCase(query="qa", category=Category.PROSE, expected_substrings=("target",))
+
+    report = evaluate([case], index, k_values=(1, 5, 10), limit=20)
+
+    assert report.outcomes[0].rank == 12
+    assert report.rank_distribution["11-20"] == 1
+
+
+def test_evaluate_default_window_is_max_k_values():
+    noise = [hit(str(i), "d", f"noise {i}") for i in range(1, 12)]
+    index = FakeIndex({"qa": noise + [hit("12", "d", "the target")]})
+    case = QueryCase(query="qa", category=Category.PROSE, expected_substrings=("target",))
+
+    report = evaluate([case], index, k_values=(1, 5, 10))
+
+    assert report.outcomes[0].rank is None
+    assert report.rank_distribution[">20/not_found"] == 1
 
 
 def test_matches_requires_both_document_and_substring():
