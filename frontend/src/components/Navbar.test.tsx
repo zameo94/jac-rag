@@ -17,7 +17,7 @@ describe("Navbar", () => {
   it("links the app name to the home page", () => {
     render(<Navbar />);
 
-    expect(screen.getByRole("link", { name: "jac-rag" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Jac Rag" })).toHaveAttribute("href", "/");
   });
 
   it("always renders the locale switcher and the provided right slot", () => {
