@@ -12,3 +12,4 @@ node_modules/
 storage/
 *.db
 .DS_Store
+backend/benchmarks/retrieval/results/

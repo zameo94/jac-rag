@@ -1,0 +1,29 @@
+{"case_id": "prose-1", "category": "prose", "query": "Dove ha sede la filiale logistica di NordicTech?", "relevant_document_ids": ["prose"], "expected_substrings": ["Rotterdam"]}
+{"case_id": "prose-2", "category": "prose", "query": "In quanti paesi opera l'azienda?", "relevant_document_ids": ["prose"], "expected_substrings": ["quattordici paesi"]}
+{"case_id": "prose-3", "category": "prose", "query": "Quali sono i valori aziendali dichiarati?", "relevant_document_ids": ["prose"], "expected_substrings": ["Trasparenza"]}
+{"case_id": "heading-1", "category": "heading", "query": "Cosa descrive la sezione Missione?", "relevant_document_ids": ["prose"], "expected_substrings": ["tecnologia professionale"]}
+{"case_id": "heading-2", "category": "heading", "query": "Cosa contiene la sezione Codici prodotto?", "relevant_document_ids": ["technical"], "expected_substrings": ["AB14-16-512"]}
+{"case_id": "heading-3", "category": "heading", "query": "Quali informazioni fornisce la sezione Ricarica?", "relevant_document_ids": ["technical"], "expected_substrings": ["65 W"]}
+{"case_id": "table-1", "category": "table", "query": "Quali modelli compaiono nel catalogo smartphone?", "relevant_document_ids": ["catalog"], "expected_substrings": ["Galaxy S25"]}
+{"case_id": "table-2", "category": "table", "query": "Quale notebook ha 32 GB di RAM?", "relevant_document_ids": ["catalog"], "expected_substrings": ["Aurora Book Pro"]}
+{"case_id": "table-3", "category": "table", "query": "Quali accessori sono elencati nel catalogo?", "relevant_document_ids": ["catalog"], "expected_substrings": ["ACC-65W-GAN"]}
+{"case_id": "numbers-1", "category": "numbers", "query": "Quanto costa il Pixel 9?", "relevant_document_ids": ["catalog"], "expected_substrings": ["649,00"]}
+{"case_id": "numbers-2", "category": "numbers", "query": "Qual e il prezzo del Galaxy S25?", "relevant_document_ids": ["catalog"], "expected_substrings": ["799,90"]}
+{"case_id": "numbers-3", "category": "numbers", "query": "Qual e l'autonomia della batteria in uso ufficio?", "relevant_document_ids": ["technical"], "expected_substrings": ["16 ore"]}
+{"case_id": "numbers-4", "category": "numbers", "query": "Qual e l'importo complessivo del corrispettivo?", "relevant_document_ids": ["legal"], "expected_substrings": ["23.500 EUR"]}
+{"case_id": "codes-1", "category": "codes", "query": "AB14-32-1024", "relevant_document_ids": ["technical"], "expected_substrings": ["AB14-32-1024"]}
+{"case_id": "codes-2", "category": "codes", "query": "Qual e il codice dell'alimentatore GaN?", "relevant_document_ids": ["catalog"], "expected_substrings": ["ACC-65W-GAN"]}
+{"case_id": "codes-3", "category": "codes", "query": "Riporta il codice prodotto AB14-16-512.", "relevant_document_ids": ["technical"], "expected_substrings": ["AB14-16-512"]}
+{"case_id": "proper-nouns-1", "category": "proper_nouns", "query": "Chi sono le parti indicate nel contratto?", "relevant_document_ids": ["legal"], "expected_substrings": ["Societa Alfa"]}
+{"case_id": "proper-nouns-2", "category": "proper_nouns", "query": "Dove si trova la sede di NordicTech?", "relevant_document_ids": ["prose"], "expected_substrings": ["Milano"]}
+{"case_id": "proper-nouns-3", "category": "proper_nouns", "query": "Quanto deve pagare Beta S.p.A.?", "relevant_document_ids": ["legal"], "expected_substrings": ["8.500 EUR"]}
+{"case_id": "semantic-1", "category": "semantic", "query": "Come posso ricaricare velocemente il portatile?", "relevant_document_ids": ["technical"], "expected_substrings": ["65 W"]}
+{"case_id": "semantic-2", "category": "semantic", "query": "Quale dispositivo offre piu memoria tra gli smartphone?", "relevant_document_ids": ["catalog"], "expected_substrings": ["256 GB"]}
+{"case_id": "semantic-3", "category": "semantic", "query": "Cosa succede alla scadenza del contratto?", "relevant_document_ids": ["legal"], "expected_substrings": ["si rinnova tacitamente"]}
+{"case_id": "semantic-4", "category": "semantic", "query": "Quali sono le condizioni per richiedere un reso?", "relevant_document_ids": ["notes"], "expected_substrings": ["trenta giorni"]}
+{"case_id": "legal-1", "category": "legal", "query": "Qual e il foro competente in caso di controversia?", "relevant_document_ids": ["legal"], "expected_substrings": ["Foro di Milano"]}
+{"case_id": "legal-2", "category": "legal", "query": "Quanto dura il contratto di fornitura?", "relevant_document_ids": ["legal"], "expected_substrings": ["dodici mesi"]}
+{"case_id": "legal-3", "category": "legal", "query": "Il contratto si rinnova automaticamente?", "relevant_document_ids": ["legal"], "expected_substrings": ["si rinnova"]}
+{"case_id": "technical-1", "category": "technical", "query": "Quanto pesa il notebook Aurora Book 14?", "relevant_document_ids": ["technical"], "expected_substrings": ["1,18 kg"]}
+{"case_id": "technical-2", "category": "technical", "query": "Qual e lo spessore del notebook?", "relevant_document_ids": ["technical"], "expected_substrings": ["14,9 mm"]}
+{"case_id": "technical-3", "category": "technical", "query": "Quanta RAM ha il notebook Aurora Book 14?", "relevant_document_ids": ["technical"], "expected_substrings": ["16 GB"]}
