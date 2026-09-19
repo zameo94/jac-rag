@@ -60,6 +60,9 @@ services:
       - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
       - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
       - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      - COOKIE_SECURE=${COOKIE_SECURE:?set COOKIE_SECURE in .env}
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:?set COOKIE_SAMESITE in .env}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:?}
       - EMBEDDING_DIM=${EMBEDDING_DIM:?}
       - CHUNK_SIZE=${CHUNK_SIZE:?}
@@ -105,6 +108,9 @@ services:
       - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
       - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
       - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      - COOKIE_SECURE=${COOKIE_SECURE:?set COOKIE_SECURE in .env}
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:?set COOKIE_SAMESITE in .env}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:?}
       - EMBEDDING_DIM=${EMBEDDING_DIM:?}
       - CHUNK_SIZE=${CHUNK_SIZE:?}
@@ -129,11 +135,11 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+        API_PROXY_TARGET: http://backend:8000
     container_name: jac_rag_frontend
     restart: always
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+      - API_PROXY_TARGET=http://backend:8000
     ports:
       - "${FRONTEND_PORT:?set FRONTEND_PORT in .env}:3000"
     depends_on:

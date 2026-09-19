@@ -20,6 +20,8 @@ TEST_ENV = {
     "RETRIEVAL_TOP_K": "5",
     "REDIS_URL": "redis://localhost:6379/0",
     "CORS_ORIGINS": "http://localhost:3000",
+    "COOKIE_SECURE": "false",
+    "COOKIE_SAMESITE": "lax",
 }
 
 os.environ.update(TEST_ENV)

@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/lib/api-error";
-import { tokenStore } from "@/lib/token-store";
+import { activeTenantStore } from "@/lib/active-tenant-store";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -13,7 +13,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, locale: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -25,17 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const refreshUser = useCallback(async () => {
-    if (!tokenStore.getAccess()) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
     try {
-      const me = await api.auth.me();
-      setUser(me);
+      setUser(await api.auth.me());
     } catch (error) {
-      if (isApiError(error) && (error.status === 401 || error.status === 403)) {
-        tokenStore.clear();
+      if (isApiError(error) && error.status === 401) {
+        try {
+          setUser(await api.auth.refresh());
+        } catch {
+          setUser(null);
+        }
+      } else if (isApiError(error) && error.status === 403) {
         setUser(null);
       }
     } finally {
@@ -49,11 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const tokens = await api.auth.login(email, password);
-      tokenStore.set(tokens.access_token, tokens.refresh_token);
-      const me = await api.auth.me();
-      setUser(me);
-      router.push(`/dashboard`);
+      const loggedIn = await api.auth.login(email, password);
+      setUser(loggedIn);
+      router.push("/");
     },
     [router],
   );
@@ -66,10 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [login],
   );
 
-  const logout = useCallback(() => {
-    tokenStore.clear();
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // ignore: cookies are cleared client-side by the redirect below
+    }
+    activeTenantStore.clear();
     setUser(null);
-    router.push(`/login`);
+    router.push("/login");
   }, [router]);
 
   return (

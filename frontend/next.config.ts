@@ -10,15 +10,28 @@ const { parsed } = loadEnv({
 });
 
 for (const [key, value] of Object.entries(parsed ?? {})) {
-  if (key.startsWith("NEXT_PUBLIC_") && process.env[key] === undefined) {
+  if (
+    (key.startsWith("NEXT_PUBLIC_") || key === "API_PROXY_TARGET") &&
+    process.env[key] === undefined
+  ) {
     process.env[key] = value;
   }
 }
+
+const apiProxyTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8000";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiProxyTarget}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

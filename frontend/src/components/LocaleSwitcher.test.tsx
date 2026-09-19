@@ -9,6 +9,7 @@ let currentLocale = "it";
 
 vi.mock("next-intl", () => ({
   useLocale: () => currentLocale,
+  useTranslations: () => (key: string) => (key === "language" ? "Language" : key),
 }));
 
 vi.mock("@/i18n/navigation", () => ({
@@ -22,41 +23,56 @@ beforeEach(() => {
 });
 
 describe("LocaleSwitcher", () => {
-  it("renders one button per locale with accessible labels", () => {
+  it("renders a dropdown trigger with the current locale", () => {
     render(<LocaleSwitcher />);
 
-    expect(screen.getByRole("button", { name: "Italiano" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "Language" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveTextContent("it");
   });
 
-  it("marks the active locale as pressed", () => {
-    render(<LocaleSwitcher />);
-
-    expect(screen.getByRole("button", { name: "Italiano" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-  });
-
-  it("navigates to the selected locale", async () => {
+  it("opens the menu showing all locales", async () => {
     const user = userEvent.setup();
     render(<LocaleSwitcher />);
 
-    await user.click(screen.getByRole("button", { name: "English" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Language" }));
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Italiano" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "English" })).toBeInTheDocument();
+  });
+
+  it("navigates to the selected locale and closes the menu", async () => {
+    const user = userEvent.setup();
+    render(<LocaleSwitcher />);
+
+    await user.click(screen.getByRole("button", { name: "Language" }));
+    await user.click(screen.getByRole("menuitem", { name: "English" }));
 
     expect(replace).toHaveBeenCalledWith("/login", { locale: "en" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("does not navigate when clicking the active locale", async () => {
+  it("does not navigate when selecting the current locale", async () => {
     const user = userEvent.setup();
     render(<LocaleSwitcher />);
 
-    await user.click(screen.getByRole("button", { name: "Italiano" }));
+    await user.click(screen.getByRole("button", { name: "Language" }));
+    await user.click(screen.getByRole("menuitem", { name: "Italiano" }));
 
     expect(replace).not.toHaveBeenCalled();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("closes the menu on Escape", async () => {
+    const user = userEvent.setup();
+    render(<LocaleSwitcher />);
+
+    await user.click(screen.getByRole("button", { name: "Language" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });
