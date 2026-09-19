@@ -252,9 +252,10 @@ message -> fastembed -> search Qdrant top-k
   the compose file because they describe the Docker network, not the app config.
 - Running the backend on the host from `backend/` reads the same root `.env` through
   `env_file=("../.env", ".env")`.
-- The frontend loads `NEXT_PUBLIC_*` from the same root `.env` in `next.config.ts`
-  (only public vars are propagated), so host dev from `frontend/` needs no separate file.
-  In Docker the value is also injected as a build arg.
+- The frontend proxies the API same-origin: the browser calls `/api/*` and Next.js
+  rewrites it to `API_PROXY_TARGET` (server-side, from the root `.env`). Only that
+  variable is propagated in `next.config.ts`, so host dev from `frontend/` needs no
+  separate file. In Docker the target is `http://backend:8000`.
 - **Fail-fast JWT**: when `ENVIRONMENT` is not a development value, the backend refuses
   to start if `JWT_SECRET` is the default or shorter than 32 characters.
 - `JWT_SECRET` rotation invalidates all issued tokens.
@@ -267,7 +268,12 @@ message -> fastembed -> search Qdrant top-k
   `src/lib/types.ts` mirrors the backend schemas.
 - `features/<domain>/` holds components/hooks/providers (mirrors medicines_manager).
 - Auth state in `AuthProvider`; active workspace in `TenantProvider`.
-- Tokens are kept in `localStorage` for the MVP (revisit httpOnly cookies later).
+- Sessions use **httpOnly cookies** (`jacrag_access`, `jacrag_refresh`) set by the
+  backend. The browser never reads tokens; the CMS calls the API through the `/api`
+  same-origin proxy so cookies are sent automatically.
+- `middleware.ts` is the server-side guard: requests without a session cookie are
+  redirected to `/{locale}/login` before rendering (public paths: login, register,
+  onboarding). `RequireAuth` is a client-side secondary check.
 - Error codes are mapped to translations in `errors.*`; the API stays English-only.
 
 ## Gotchas

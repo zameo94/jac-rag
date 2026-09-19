@@ -2,17 +2,9 @@ from sqlmodel import select
 
 from app.models import Membership
 from app.schemas.membership import MembershipRole
+from tests.helpers import register_and_login as auth_headers
 
-AUTH_URL = "/api/v1/auth"
 TENANTS_URL = "/api/v1/tenants"
-
-
-async def auth_headers(client, email: str) -> dict[str, str]:
-    await client.post(f"{AUTH_URL}/register", json={"email": email, "password": "supersecret"})
-    response = await client.post(
-        f"{AUTH_URL}/login", json={"email": email, "password": "supersecret"}
-    )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 async def create_tenant(client, headers, **overrides):
@@ -54,7 +46,7 @@ async def test_create_tenant_accepts_assistive_mode(client):
 
 async def test_create_tenant_assigns_owner_membership(client, session_factory):
     headers = await auth_headers(client, "owner@example.com")
-    me = await client.get(f"{AUTH_URL}/me", headers=headers)
+    me = await client.get("/api/v1/auth/me", headers=headers)
     tenant = await create_tenant(client, headers)
 
     async with session_factory() as session:
@@ -151,6 +143,7 @@ async def test_get_tenant_not_found_returns_404(client):
 async def test_get_tenant_requires_authentication(client):
     owner_headers = await auth_headers(client, "owner@example.com")
     tenant = await create_tenant(client, owner_headers)
+    client.cookies.clear()
 
     response = await client.get(f"{TENANTS_URL}/{tenant.json()['id']}")
 

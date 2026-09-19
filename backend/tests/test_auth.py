@@ -7,7 +7,11 @@ REGISTER = {"email": "user@example.com", "password": "supersecret"}
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
 REFRESH_URL = "/api/v1/auth/refresh"
+LOGOUT_URL = "/api/v1/auth/logout"
 ME_URL = "/api/v1/auth/me"
+
+ACCESS_COOKIE = "jacrag_access"
+REFRESH_COOKIE = "jacrag_refresh"
 
 
 async def do_register(client, **overrides):
@@ -20,7 +24,8 @@ async def do_login(client, **overrides):
 
 
 async def access_token(client) -> str:
-    return (await do_login(client)).json()["access_token"]
+    await do_login(client)
+    return client.cookies.get(ACCESS_COOKIE)
 
 
 async def get_user(session_factory, email):
@@ -95,16 +100,25 @@ async def test_register_unsupported_locale_returns_422(client):
     assert response.json()["code"] == "VALIDATION_ERROR"
 
 
-async def test_login_returns_token_pair(client):
+async def test_login_sets_http_only_cookies(client):
     await do_register(client)
 
     response = await do_login(client)
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["token_type"] == "bearer"
-    assert security.decode_token(body["access_token"], security.ACCESS_TOKEN_TYPE)
-    assert security.decode_token(body["refresh_token"], security.REFRESH_TOKEN_TYPE)
+    assert response.json()["email"] == REGISTER["email"]
+    set_cookie = response.headers.get_list("set-cookie")
+    assert any(ACCESS_COOKIE in cookie and "HttpOnly" in cookie for cookie in set_cookie)
+    assert any(REFRESH_COOKIE in cookie and "HttpOnly" in cookie for cookie in set_cookie)
+
+
+async def test_login_does_not_return_tokens_in_body(client):
+    await do_register(client)
+
+    body = (await do_login(client)).json()
+
+    assert "access_token" not in body
+    assert "refresh_token" not in body
 
 
 async def test_login_is_case_insensitive_on_email(client):
@@ -138,7 +152,17 @@ async def test_me_requires_authentication(client):
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def test_me_returns_current_user(client):
+async def test_me_returns_current_user_with_cookie(client):
+    await do_register(client)
+    await do_login(client)
+
+    response = await client.get(ME_URL)
+
+    assert response.status_code == 200
+    assert response.json()["email"] == REGISTER["email"]
+
+
+async def test_me_accepts_bearer_token(client):
     await do_register(client)
     token = await access_token(client)
 
@@ -148,18 +172,21 @@ async def test_me_returns_current_user(client):
     assert response.json()["email"] == REGISTER["email"]
 
 
-async def test_me_rejects_invalid_token(client):
+async def test_me_rejects_invalid_bearer_token(client):
     response = await client.get(ME_URL, headers={"Authorization": "Bearer not-a-token"})
 
     assert response.status_code == 401
     assert response.json()["code"] == "INVALID_TOKEN"
 
 
-async def test_me_rejects_refresh_token(client):
+async def test_me_rejects_refresh_cookie_as_access(client):
     await do_register(client)
-    refresh_token = (await do_login(client)).json()["refresh_token"]
+    await do_login(client)
+    refresh_token = client.cookies.get(REFRESH_COOKIE)
 
-    response = await client.get(ME_URL, headers={"Authorization": f"Bearer {refresh_token}"})
+    response = await client.get(
+        ME_URL, headers={"Authorization": f"Bearer {refresh_token}"}
+    )
 
     assert response.status_code == 401
     assert response.json()["code"] == "INVALID_TOKEN"
@@ -167,10 +194,10 @@ async def test_me_rejects_refresh_token(client):
 
 async def test_me_rejects_disabled_user(client, session_factory):
     await do_register(client)
-    token = await access_token(client)
+    await do_login(client)
     await deactivate(session_factory, REGISTER["email"])
 
-    response = await client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
+    response = await client.get(ME_URL)
 
     assert response.status_code == 403
     assert response.json()["code"] == "ACCOUNT_DISABLED"
@@ -186,33 +213,61 @@ async def test_login_rejects_disabled_user(client, session_factory):
     assert response.json()["code"] == "ACCOUNT_DISABLED"
 
 
-async def test_refresh_returns_new_token_pair(client):
+async def test_refresh_rotates_cookies(client):
     await do_register(client)
-    refresh_token = (await do_login(client)).json()["refresh_token"]
+    await do_login(client)
+    previous = client.cookies.get(ACCESS_COOKIE)
 
-    response = await client.post(REFRESH_URL, json={"refresh_token": refresh_token})
+    response = await client.post(REFRESH_URL)
 
     assert response.status_code == 200
-    body = response.json()
-    assert security.decode_token(body["access_token"], security.ACCESS_TOKEN_TYPE)
-    assert security.decode_token(body["refresh_token"], security.REFRESH_TOKEN_TYPE)
+    assert client.cookies.get(ACCESS_COOKIE)
+    assert client.cookies.get(ACCESS_COOKIE) != previous
+    me = await client.get(ME_URL)
+    assert me.status_code == 200
 
 
-async def test_refresh_rejects_access_token(client):
+async def test_refresh_without_cookie_returns_401(client):
     await do_register(client)
-    token = await access_token(client)
 
-    response = await client.post(REFRESH_URL, json={"refresh_token": token})
+    response = await client.post(REFRESH_URL)
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "INVALID_REFRESH_TOKEN"
+
+
+async def test_refresh_rejects_access_token_in_refresh_cookie(client):
+    await do_register(client)
+    await do_login(client)
+    access_token_value = client.cookies.get(ACCESS_COOKIE)
+    client.cookies.clear()
+    client.cookies.set(REFRESH_COOKIE, access_token_value, path="/")
+
+    response = await client.post(REFRESH_URL)
 
     assert response.status_code == 401
     assert response.json()["code"] == "INVALID_REFRESH_TOKEN"
 
 
-async def test_refresh_rejects_garbage_token(client):
-    response = await client.post(REFRESH_URL, json={"refresh_token": "garbage"})
+async def test_refresh_rejects_garbage_cookie(client):
+    client.cookies.set(REFRESH_COOKIE, "garbage", path="/api/v1/auth")
+
+    response = await client.post(REFRESH_URL)
 
     assert response.status_code == 401
     assert response.json()["code"] == "INVALID_REFRESH_TOKEN"
+
+
+async def test_logout_clears_cookies(client):
+    await do_register(client)
+    await do_login(client)
+
+    response = await client.post(LOGOUT_URL)
+
+    assert response.status_code == 204
+    assert client.cookies.get(ACCESS_COOKIE) is None
+    assert client.cookies.get(REFRESH_COOKIE) is None
+    assert (await client.get(ME_URL)).status_code == 401
 
 
 async def deactivate(session_factory, email: str) -> None:

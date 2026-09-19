@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { useAuth } from "@/features/auth/AuthProvider";
+import { activeTenantStore } from "@/lib/active-tenant-store";
 import { api } from "@/lib/api";
-import { activeTenantStore } from "@/lib/token-store";
 import type { Tenant } from "@/lib/types";
 
 interface TenantContextValue {

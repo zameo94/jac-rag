@@ -1,23 +1,53 @@
-from fastapi import APIRouter, Depends, status
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import security
+from app.core.config import get_settings
 from app.core.deps import get_current_user
 from app.core.errors import api_error
 from app.database import get_session
 from app.models import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenPair
+from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.user import UserRead
 
 router = APIRouter()
+settings = get_settings()
+
+ACCESS_COOKIE = "jacrag_access"
+REFRESH_COOKIE = "jacrag_refresh"
 
 
-def _issue_tokens(user_id: int) -> TokenPair:
-    return TokenPair(
-        access_token=security.create_access_token(user_id),
-        refresh_token=security.create_refresh_token(user_id),
+def _set_auth_cookies(response: Response, user_id: int) -> None:
+    access_token = security.create_access_token(user_id)
+    refresh_token = security.create_refresh_token(user_id)
+    common = {
+        "httponly": True,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
+        "domain": settings.cookie_domain,
+    }
+    response.set_cookie(
+        ACCESS_COOKIE,
+        access_token,
+        max_age=int(timedelta(minutes=settings.access_token_expire_minutes).total_seconds()),
+        path="/",
+        **common,
     )
+    response.set_cookie(
+        REFRESH_COOKIE,
+        refresh_token,
+        max_age=int(timedelta(days=settings.refresh_token_expire_days).total_seconds()),
+        path="/",
+        **common,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    response.delete_cookie(ACCESS_COOKIE, path="/", domain=settings.cookie_domain)
+    response.delete_cookie(REFRESH_COOKIE, path="/", domain=settings.cookie_domain)
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -44,11 +74,12 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=TokenPair)
+@router.post("/login", response_model=UserRead)
 async def login(
     payload: LoginRequest,
+    response: Response,
     session: AsyncSession = Depends(get_session),
-) -> TokenPair:
+) -> User:
     user = (await session.exec(select(User).where(User.email == payload.email))).first()
     if user is None or not security.verify_password(payload.password, user.password_hash):
         raise api_error(
@@ -64,16 +95,26 @@ async def login(
             "The user account is disabled",
         )
 
-    return _issue_tokens(user.id)
+    _set_auth_cookies(response, user.id)
+    return user
 
 
-@router.post("/refresh", response_model=TokenPair)
+@router.post("/refresh", response_model=UserRead)
 async def refresh(
-    payload: RefreshRequest,
+    request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
-) -> TokenPair:
+) -> User:
+    token = request.cookies.get(REFRESH_COOKIE)
+    if not token:
+        raise api_error(
+            status.HTTP_401_UNAUTHORIZED,
+            "INVALID_REFRESH_TOKEN",
+            "The refresh token is missing or invalid",
+        )
+
     try:
-        user_id = security.decode_token(payload.refresh_token, security.REFRESH_TOKEN_TYPE)
+        user_id = security.decode_token(token, security.REFRESH_TOKEN_TYPE)
     except security.TokenError:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,
@@ -89,7 +130,15 @@ async def refresh(
             "The refresh token is invalid or expired",
         )
 
-    return _issue_tokens(user.id)
+    _set_auth_cookies(response, user.id)
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response) -> Response:
+    _clear_auth_cookies(response)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response
 
 
 @router.get("/me", response_model=UserRead)

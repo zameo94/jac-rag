@@ -131,9 +131,19 @@
     "comingSoon": "Coming soon"
   },
   "nav": {
+    "menu": "Menu",
+    "home": "Home",
     "documents": "Documents",
     "members": "Members",
     "settings": "Settings",
     "playground": "Playground"
+  },
+  "breadcrumbs": {
+    "label": "Breadcrumb"
+  },
+  "home": {
+    "title": "Your documents, with a chat on top",
+    "subtitle": "Upload your files and query their content easily.",
+    "cta": "Go to documents"
   }
 }

@@ -1,7 +1,5 @@
 import "@testing-library/jest-dom/vitest";
 
-process.env.NEXT_PUBLIC_API_URL ??= "http://test.local/api/v1";
-
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
 

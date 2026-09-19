@@ -1,4 +1,4 @@
-from fastapi import Depends, status
+from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,12 +11,25 @@ from app.schemas.membership import MembershipRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+ACCESS_COOKIE = "jacrag_access"
+
+
+def _extract_access_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str | None:
+    if credentials is not None:
+        return credentials.credentials
+    return request.cookies.get(ACCESS_COOKIE)
+
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    if credentials is None:
+    token = _extract_access_token(request, credentials)
+    if token is None:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,
             "NOT_AUTHENTICATED",
@@ -24,7 +37,7 @@ async def get_current_user(
         )
 
     try:
-        user_id = security.decode_token(credentials.credentials, security.ACCESS_TOKEN_TYPE)
+        user_id = security.decode_token(token, security.ACCESS_TOKEN_TYPE)
     except security.TokenError:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,

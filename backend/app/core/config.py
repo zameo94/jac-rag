@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     redis_url: str
     cors_origins: str
 
+    cookie_secure: bool
+    cookie_samesite: str
+    cookie_domain: str | None = None
+
     @property
     def is_development(self) -> bool:
         return self.environment.strip().lower() in {"development", "dev", "local", "test"}

@@ -1,5 +1,4 @@
 import { ApiError } from "./api-error";
-import { tokenStore } from "./token-store";
 import type {
   Document,
   InvitationCreated,
@@ -7,20 +6,14 @@ import type {
   Membership,
   MembershipRole,
   Tenant,
-  TokenPair,
   User,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_BASE) {
-  throw new Error("NEXT_PUBLIC_API_URL is not set");
-}
+const API_BASE = "/api/v1";
 
 interface RequestOptions {
   method?: string;
   body?: unknown;
-  auth?: boolean;
   formData?: FormData;
 }
 
@@ -48,19 +41,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     body = JSON.stringify(options.body);
   }
 
-  if (options.auth !== false) {
-    const token = tokenStore.getAccess();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-  }
-
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       method: options.method ?? "GET",
       headers,
       body,
+      credentials: "same-origin",
     });
   } catch {
     throw new ApiError(0, { code: "NETWORK_ERROR", message: "Network error" });
@@ -83,22 +70,16 @@ export const api = {
       return request("/auth/register", {
         method: "POST",
         body: { email, password, locale },
-        auth: false,
       });
     },
-    login(email: string, password: string): Promise<TokenPair> {
-      return request("/auth/login", {
-        method: "POST",
-        body: { email, password },
-        auth: false,
-      });
+    login(email: string, password: string): Promise<User> {
+      return request("/auth/login", { method: "POST", body: { email, password } });
     },
-    refresh(refreshToken: string): Promise<TokenPair> {
-      return request("/auth/refresh", {
-        method: "POST",
-        body: { refresh_token: refreshToken },
-        auth: false,
-      });
+    refresh(): Promise<User> {
+      return request("/auth/refresh", { method: "POST" });
+    },
+    logout(): Promise<void> {
+      return request("/auth/logout", { method: "POST" });
     },
     me(): Promise<User> {
       return request("/auth/me");

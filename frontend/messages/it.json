@@ -131,9 +131,19 @@
     "comingSoon": "Presto disponibile"
   },
   "nav": {
+    "menu": "Menu",
+    "home": "Home",
     "documents": "Documenti",
     "members": "Membri",
     "settings": "Impostazioni",
     "playground": "Playground"
+  },
+  "breadcrumbs": {
+    "label": "Percorso di navigazione"
+  },
+  "home": {
+    "title": "I tuoi documenti, con una chat sopra",
+    "subtitle": "Carica i tuoi file e interroga i contenuti in modo semplice.",
+    "cta": "Vai ai documenti"
   }
 }
