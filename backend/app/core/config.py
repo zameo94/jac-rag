@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     min_chars_per_page: int
     relevance_threshold: float
     retrieval_top_k: int
+    hybrid_enabled: bool
+    rrf_k: int
 
     ocr_enabled: bool
     ocr_dpi: int
