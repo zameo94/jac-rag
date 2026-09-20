@@ -6,11 +6,13 @@ from app.services.llm import EXTERNAL_API_PROVIDER_NAME, OLLAMA_PROVIDER_NAME
 from app.services.llm.tenant import (
     ALLOWED_PROVIDERS_KEY,
     DEFAULT_ALLOWED_PROVIDERS,
+    DEFAULT_PROVIDER_KEY,
     LLM_SETTING_TYPE,
     MODEL_KEY,
     available_providers_for_tenant,
     normalize_allowed_providers,
     tenant_allowed_provider_ids,
+    tenant_default_provider,
     tenant_model_override,
 )
 
@@ -146,3 +148,15 @@ async def test_tenant_model_override(session_factory):
 
     async with session_factory() as session:
         assert await tenant_model_override(session, tenant_id) == "llama3.1"
+
+
+async def test_tenant_default_provider(session_factory):
+    tenant_id = await create_tenant(session_factory)
+
+    async with session_factory() as session:
+        assert await tenant_default_provider(session, tenant_id) is None
+        session.add(tenant_llm_setting(tenant_id, DEFAULT_PROVIDER_KEY, " OLLAMA "))
+        await session.commit()
+
+    async with session_factory() as session:
+        assert await tenant_default_provider(session, tenant_id) == "ollama"

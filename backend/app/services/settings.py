@@ -37,3 +37,27 @@ async def get_value(
     if row is None:
         return default
     return row.value
+
+
+async def set_value(
+    session: AsyncSession,
+    scope_type: SettingScope,
+    scope_id: int,
+    type: str,
+    key: str,
+    value: Any,
+) -> Setting:
+    row = await get_setting(session, scope_type, scope_id, type, key)
+    if row is None:
+        row = Setting(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            type=type,
+            key=key,
+            value=value,
+        )
+    else:
+        row.value = value
+    session.add(row)
+    await session.flush()
+    return row

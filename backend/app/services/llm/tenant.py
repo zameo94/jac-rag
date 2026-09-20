@@ -15,6 +15,7 @@ DEFAULT_ALLOWED_PROVIDERS: tuple[str, ...] = (OLLAMA_PROVIDER_NAME,)
 LLM_SETTING_TYPE = "llm"
 ALLOWED_PROVIDERS_KEY = "allowed_providers"
 MODEL_KEY = "model"
+DEFAULT_PROVIDER_KEY = "default_provider"
 
 
 def normalize_allowed_providers(value) -> tuple[str, ...]:
@@ -65,6 +66,21 @@ async def tenant_model_override(
     )
     if isinstance(value, str) and value.strip():
         return value.strip()
+    return None
+
+
+async def tenant_default_provider(
+    session: AsyncSession, tenant_id: int
+) -> str | None:
+    value = await get_value(
+        session,
+        SettingScope.TENANT,
+        tenant_id,
+        LLM_SETTING_TYPE,
+        DEFAULT_PROVIDER_KEY,
+    )
+    if isinstance(value, str) and value.strip():
+        return value.strip().lower()
     return None
 
 
