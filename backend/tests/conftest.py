@@ -24,6 +24,8 @@ TEST_ENV = {
     "MIN_CHARS_PER_PAGE": "30",
     "RELEVANCE_THRESHOLD": "0.5",
     "RETRIEVAL_TOP_K": "5",
+    "HYBRID_ENABLED": "false",
+    "RRF_K": "60",
     "OCR_ENABLED": "false",
     "OCR_DPI": "200",
     "OCR_MIN_CONFIDENCE": "0.5",

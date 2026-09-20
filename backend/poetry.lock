@@ -3619,6 +3619,24 @@ fastembed = ["fastembed (>=0.8,<0.9)"]
 fastembed-gpu = ["fastembed-gpu (>=0.8,<0.9)"]
 
 [[package]]
+name = "rank-bm25"
+version = "0.2.2"
+description = "Various BM25 algorithms for document ranking"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "rank_bm25-0.2.2-py3-none-any.whl", hash = "sha256:7bd4a95571adadfc271746fa146a4bcfd89c0cf731e49c3d1ad863290adbe8ae"},
+    {file = "rank_bm25-0.2.2.tar.gz", hash = "sha256:096ccef76f8188563419aaf384a02f0ea459503fdf77901378d4fd9d87e5e51d"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+dev = ["pytest"]
+
+[[package]]
 name = "redis"
 version = "8.1.0"
 description = "Python client for Redis database and key-value store"
@@ -4837,4 +4855,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4"
-content-hash = "5f56b947e80f383a16eb7122c3321d96e2bf4e86b5b04a4bb66943ddbf0ffe2a"
+content-hash = "dba614b278a37b1a274953e81848de36c5dde42e887d2a70cbfa274e5233f256"
