@@ -3,7 +3,7 @@ import logging
 from app.core.config import get_settings
 from app.core.tkq import broker
 from app.database import async_session_factory
-from app.models import Document
+from app.models import Document, Tenant
 from app.schemas.document import DocumentStatus
 from app.services import storage
 from app.services.rag import embeddings, vector_store
@@ -68,10 +68,12 @@ async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
         filename = document.filename
         storage_path = document.storage_path
         mime = document.mime
+        tenant = await session.get(Tenant, tenant_id)
+        languages = (tenant.default_locale,) if tenant else None
 
     try:
         content = storage.read_file(storage_path)
-        parsed = get_parser(mime).parse(content, source=filename)
+        parsed = get_parser(mime).parse(content, source=filename, languages=languages)
         document_ir = normalize_document(parsed)
         if settings.drop_repeated_layout:
             document_ir.blocks = [block for block in document_ir.blocks if not block.repeated_layout]

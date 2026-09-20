@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -105,6 +106,37 @@ async def get_document_status(
             "Document not found",
         )
     return document
+
+
+@router.get("/{tenant_id}/documents/{document_id}/file")
+async def download_document(
+    tenant_id: int,
+    document_id: int,
+    membership: Membership = Depends(get_current_membership),
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    document = await session.get(Document, document_id)
+    if document is None or document.tenant_id != tenant_id:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "DOCUMENT_NOT_FOUND",
+            "Document not found",
+        )
+
+    path = Path(document.storage_path)
+    if not path.is_file():
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "DOCUMENT_FILE_NOT_FOUND",
+            "Stored document file not found",
+        )
+
+    return FileResponse(
+        path,
+        media_type=document.mime,
+        filename=document.filename,
+        content_disposition_type="inline",
+    )
 
 
 @router.delete(

@@ -149,9 +149,14 @@ messages      (id, conversation_id, role, content, sources JSON, created_at)
   `section_path`. Orphan headings (no content) stay as standalone chunks.
 - `CHUNK_SIZE` is a soft target, `CHUNK_MAX_SIZE` the ceiling. Repeated header/footer
   blocks are marked and kept by default (`DROP_REPEATED_LAYOUT` to drop them).
-- PDF text layer only. **No OCR in MVP.** After extraction, if chars/page are below a
-  threshold, mark document `failed` with reason `no_text_layer` (never create an empty
-  index silently).
+- PDF text layer is the primary source. **OCR is a feature flag** (`OCR_ENABLED`,
+  Tesseract, `eng`/`ita`) used only when needed and never as an LLM:
+  - text layer below `MIN_CHARS_PER_PAGE` -> full-page OCR;
+  - page is image-dominant (`OCR_IMAGE_DOMINANCE_RATIO`) but has a text layer ->
+    OCR **labels only** (alphabetic tokens), so the text layer always wins on values.
+  - ordinary text PDFs are never OCR'd. OCR language follows the tenant locale.
+  - if extraction still yields no text, mark document `failed` with reason
+    `no_text_layer` (never create an empty index silently).
 - Chunk metadata (page, block_type, table_id, row_indices, section, source_block_ids)
   is stored in the Qdrant payload for provenance.
 
@@ -308,4 +313,6 @@ message -> fastembed -> search Qdrant top-k
   makes the app use in-memory too.
 - Node 26 exposes a broken experimental `localStorage` under jsdom; `vitest.setup.ts`
   installs an in-memory polyfill.
-- PDF support is **text layer only**; scanned PDFs fail with `no_text_layer`.
+- PDF support uses the text layer, with optional Tesseract OCR (`OCR_ENABLED`) for
+  scanned pages or labels baked into page images; scanned PDFs without OCR enabled
+  fail with `no_text_layer`.

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from app.services.rag.diagnostics import ExtractionDiagnostics
 from app.services.rag.ir import BlockLike, Document, Paragraph
 from app.services.rag.parsers.base import DocumentParser
@@ -11,7 +13,13 @@ class TxtParser(DocumentParser):
 
     mime_types = ("text/plain",)
 
-    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+    def parse(
+        self,
+        content: bytes,
+        *,
+        source: str | None = None,
+        languages: Sequence[str] | None = None,
+    ) -> Document:
         text = content.decode("utf-8", errors="replace")
         diagnostics = ExtractionDiagnostics(pages=1)
         blocks: list[BlockLike] = []

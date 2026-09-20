@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from app.services.rag.ir import Document
 from app.services.rag.parsers.base import DocumentParser
 from app.services.rag.parsers.docx import DocxParser
@@ -47,17 +49,25 @@ def get_parser(mime: str) -> DocumentParser:
         raise ValueError(f"No parser registered for mime type: {mime}") from exc
 
 
-def parse_pdf(content: bytes, *, source: str | None = None) -> Document:
-    return _PDF.parse(content, source=source)
+def parse_pdf(
+    content: bytes, *, source: str | None = None, languages: Sequence[str] | None = None
+) -> Document:
+    return _PDF.parse(content, source=source, languages=languages)
 
 
-def parse_docx(content: bytes, *, source: str | None = None) -> Document:
-    return _DOCX.parse(content, source=source)
+def parse_docx(
+    content: bytes, *, source: str | None = None, languages: Sequence[str] | None = None
+) -> Document:
+    return _DOCX.parse(content, source=source, languages=languages)
 
 
-def parse_markdown(content: bytes, *, source: str | None = None) -> Document:
-    return _MARKDOWN.parse(content, source=source)
+def parse_markdown(
+    content: bytes, *, source: str | None = None, languages: Sequence[str] | None = None
+) -> Document:
+    return _MARKDOWN.parse(content, source=source, languages=languages)
 
 
-def parse_text(content: bytes, *, source: str | None = None) -> Document:
-    return _TXT.parse(content, source=source)
+def parse_text(
+    content: bytes, *, source: str | None = None, languages: Sequence[str] | None = None
+) -> Document:
+    return _TXT.parse(content, source=source, languages=languages)

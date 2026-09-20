@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import ClassVar
 
 from app.services.rag.ir import Document
@@ -15,7 +16,13 @@ class DocumentParser(ABC):
     mime_types: ClassVar[tuple[str, ...]] = ()
 
     @abstractmethod
-    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+    def parse(
+        self,
+        content: bytes,
+        *,
+        source: str | None = None,
+        languages: Sequence[str] | None = None,
+    ) -> Document:
         raise NotImplementedError
 
     def __call__(self, content: bytes) -> Document:

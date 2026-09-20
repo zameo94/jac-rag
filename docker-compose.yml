@@ -88,6 +88,10 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
+      - OCR_ENABLED=${OCR_ENABLED:?}
+      - OCR_DPI=${OCR_DPI:?}
+      - OCR_MIN_CONFIDENCE=${OCR_MIN_CONFIDENCE:?}
+      - OCR_IMAGE_DOMINANCE_RATIO=${OCR_IMAGE_DOMINANCE_RATIO:?}
     ports:
       - "${BACKEND_PORT:?set BACKEND_PORT in .env}:8000"
     volumes:
@@ -145,6 +149,10 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
+      - OCR_ENABLED=${OCR_ENABLED:?}
+      - OCR_DPI=${OCR_DPI:?}
+      - OCR_MIN_CONFIDENCE=${OCR_MIN_CONFIDENCE:?}
+      - OCR_IMAGE_DOMINANCE_RATIO=${OCR_IMAGE_DOMINANCE_RATIO:?}
     volumes:
       - storage_data:/data/storage
       - fastembed_cache:/data/fastembed

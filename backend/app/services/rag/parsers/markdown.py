@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 from app.services.rag.diagnostics import ExtractionDiagnostics
 from app.services.rag.ir import (
@@ -43,7 +44,13 @@ def _is_table_start(lines: list[str], index: int) -> bool:
 class MarkdownParser(DocumentParser):
     mime_types = ("text/markdown",)
 
-    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+    def parse(
+        self,
+        content: bytes,
+        *,
+        source: str | None = None,
+        languages: Sequence[str] | None = None,
+    ) -> Document:
         text = content.decode("utf-8", errors="replace")
         lines = text.splitlines()
         diagnostics = ExtractionDiagnostics(pages=1)
