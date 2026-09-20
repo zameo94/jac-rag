@@ -1,75 +1,28 @@
 import pytest
 
+from app.services.rag.ir import (
+    Document,
+    Heading,
+    ListBlock,
+    Paragraph,
+    TableBlock,
+)
 from app.services.rag.parsers import (
     SUPPORTED_EXTENSIONS,
     SUPPORTED_MIME_TYPES,
     get_parser,
+    parse_docx,
+    parse_markdown,
+    parse_pdf,
+    parse_text,
     resolve_mime,
 )
-from app.services.rag.parsers.base import ParsedDocument
-from app.services.rag.parsers.docx import parse_docx
-from app.services.rag.parsers.pdf import parse_pdf
-from app.services.rag.parsers.text import parse_text
-from tests.fixtures import make_docx, make_pdf
+from app.services.rag.parsers.base import DocumentParser
+from tests.fixtures import build_pdf, make_docx_document, make_markdown, make_pdf
 
-
-def test_parse_text_decodes_utf8():
-    parsed = parse_text("Ciao mondo\nseconda riga".encode("utf-8"))
-
-    assert parsed.text == "Ciao mondo\nseconda riga"
-    assert parsed.page_count == 1
-
-
-def test_parse_text_replaces_invalid_bytes():
-    parsed = parse_text(b"valid \xff\xfe bytes")
-
-    assert "valid" in parsed.text
-
-
-def test_parse_text_strips_whitespace():
-    parsed = parse_text(b"   \n\n  hello  \n\n  ")
-
-    assert parsed.text == "hello"
-
-
-def test_parse_docx_extracts_paragraphs():
-    parsed = parse_docx(make_docx(["Primo paragrafo", "Secondo paragrafo"]))
-
-    assert "Primo paragrafo" in parsed.text
-    assert "Secondo paragrafo" in parsed.text
-    assert parsed.page_count == 1
-
-
-def test_parse_pdf_extracts_text_layer():
-    parsed = parse_pdf(make_pdf("Contenuto del PDF"))
-
-    assert "Contenuto del PDF" in parsed.text
-    assert parsed.page_count == 1
-
-
-def test_has_text_layer_true_for_text_document():
-    parsed = ParsedDocument(text="a" * 100, page_count=1)
-
-    assert parsed.has_text_layer() is True
-
-
-def test_has_text_layer_false_for_scanned_document():
-    parsed = ParsedDocument(text="", page_count=5)
-
-    assert parsed.has_text_layer() is False
-
-
-def test_has_text_layer_uses_page_count():
-    parsed = ParsedDocument(text="x" * 100, page_count=10)
-
-    assert parsed.chars_per_page == 10
-    assert parsed.has_text_layer() is False
-
-
-def test_chars_per_page_without_pages():
-    parsed = ParsedDocument(text="abc", page_count=0)
-
-    assert parsed.chars_per_page == 3
+# --------------------------------------------------------------------------- #
+# Registry                                                                     #
+# --------------------------------------------------------------------------- #
 
 
 def test_resolve_mime_prefers_valid_provided_mime():
@@ -84,15 +37,12 @@ def test_resolve_mime_falls_back_to_extension():
 
 def test_resolve_mime_returns_none_for_unknown():
     assert resolve_mime("malware.exe", "application/octet-stream") is None
-
-
-def test_resolve_mime_returns_none_for_unknown_without_extension():
     assert resolve_mime("noextension", None) is None
 
 
-def test_get_parser_returns_callable_for_supported_mime():
+def test_get_parser_returns_document_parser():
     for mime in SUPPORTED_MIME_TYPES:
-        assert callable(get_parser(mime))
+        assert isinstance(get_parser(mime), DocumentParser)
 
 
 def test_get_parser_raises_for_unknown_mime():
@@ -103,3 +53,262 @@ def test_get_parser_raises_for_unknown_mime():
 def test_supported_extensions_are_lowercase():
     assert all(extension.startswith(".") for extension in SUPPORTED_EXTENSIONS)
     assert all(extension == extension.lower() for extension in SUPPORTED_EXTENSIONS)
+
+
+def test_markdown_is_supported():
+    assert "text/markdown" in SUPPORTED_MIME_TYPES
+
+
+# --------------------------------------------------------------------------- #
+# TXT                                                                          #
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_text_creates_paragraphs_only():
+    document = parse_text(b"Primo paragrafo\nsu due righe.\n\nSecondo paragrafo.")
+
+    assert isinstance(document, Document)
+    assert all(isinstance(block, Paragraph) for block in document.blocks)
+    assert len(document.blocks) == 2
+    assert document.blocks[0].text == "Primo paragrafo\nsu due righe."
+    assert "Secondo paragrafo." in document.text
+
+
+def test_parse_text_replaces_invalid_bytes():
+    document = parse_text(b"valid \xff\xfe bytes")
+
+    assert "valid" in document.text
+
+
+def test_parse_text_does_not_invent_structure():
+    document = parse_text(b"# Not a heading\n- not a list\n| not | a table |")
+
+    assert all(isinstance(block, Paragraph) for block in document.blocks)
+    assert not any(isinstance(block, Heading) for block in document.blocks)
+    assert not any(isinstance(block, TableBlock) for block in document.blocks)
+
+
+# --------------------------------------------------------------------------- #
+# Markdown                                                                     #
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_markdown_builds_sections_and_prose():
+    content = "# Titolo\n\n## Sezione\n\nTesto della sezione.\n"
+    document = parse_markdown(make_markdown(content))
+
+    kinds = [type(block).__name__ for block in document.blocks]
+    assert kinds == ["Heading", "Heading", "Paragraph"]
+    assert document.blocks[0].level == 1
+    assert document.blocks[1].level == 2
+
+
+def test_parse_markdown_builds_lists():
+    document = parse_markdown(make_markdown("- uno\n- due\n\n1. primo\n2. secondo\n"))
+
+    lists = [block for block in document.blocks if isinstance(block, ListBlock)]
+    assert len(lists) == 2
+    assert [item.text for item in lists[0].items] == ["uno", "due"]
+    assert lists[1].ordered is True
+
+
+def test_parse_markdown_builds_table_with_header():
+    content = "| Modello | Prezzo |\n| --- | --- |\n| A1 | 10,00 |\n| B2 | 20,00 |\n"
+    document = parse_markdown(make_markdown(content))
+
+    tables = [block for block in document.blocks if isinstance(block, TableBlock)]
+    assert len(tables) == 1
+    table = tables[0]
+    assert table.header == ["Modello", "Prezzo"]
+    assert [row.cell_map() for row in table.rows] == [
+        {"Modello": "A1", "Prezzo": "10,00"},
+        {"Modello": "B2", "Prezzo": "20,00"},
+    ]
+    assert "Modello: A1" in document.text
+    assert "Prezzo: 10,00" in document.text
+
+
+def test_parse_markdown_keeps_code_and_quotes():
+    content = "> citazione\n\n```python\nprint(1)\n```\n"
+    document = parse_markdown(make_markdown(content))
+
+    kinds = [type(block).__name__ for block in document.blocks]
+    assert kinds == ["QuoteBlock", "CodeBlock"]
+
+
+# --------------------------------------------------------------------------- #
+# DOCX                                                                         #
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_docx_preserves_document_order():
+    blocks = [
+        ("heading", "Capitolo 1", 1),
+        ("paragraph", "Introduzione."),
+        ("table", ["A", "B"], [["1", "2"], ["3", "4"]]),
+        ("paragraph", "Conclusione."),
+    ]
+    document = parse_docx(make_docx_document(blocks))
+
+    kinds = [type(block).__name__ for block in document.blocks]
+    assert kinds == ["Heading", "Paragraph", "TableBlock", "Paragraph"]
+
+
+def test_parse_docx_table_headers_and_cells():
+    blocks = [("table", ["Modello", "Prezzo"], [["A1", "10,00"], ["B2", "20,00"]])]
+    document = parse_docx(make_docx_document(blocks))
+
+    table = next(block for block in document.blocks if isinstance(block, TableBlock))
+    assert table.header == ["Modello", "Prezzo"]
+    assert table.rows[1].cell_map() == {"Modello": "B2", "Prezzo": "20,00"}
+
+
+def test_parse_docx_lists():
+    blocks = [("list", ["uno", "due", "tre"])]
+    document = parse_docx(make_docx_document(blocks))
+
+    lists = [block for block in document.blocks if isinstance(block, ListBlock)]
+    assert len(lists) == 1
+    assert [item.text for item in lists[0].items] == ["uno", "due", "tre"]
+
+
+# --------------------------------------------------------------------------- #
+# PDF                                                                          #
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_pdf_extracts_text_layer():
+    document = parse_pdf(make_pdf("Contenuto del PDF"))
+
+    assert isinstance(document, Document)
+    assert "Contenuto del PDF" in document.text
+    assert document.page_count == 1
+
+
+def test_parse_pdf_reconstructs_table_with_header():
+    pdf = build_pdf(
+        [
+            ("heading", "Listino"),
+            ("table", ["Modello", "Prezzo"], [["A1", "10,00"], ["B2", "20,00"]], True),
+        ]
+    )
+    document = parse_pdf(pdf)
+
+    tables = [block for block in document.blocks if isinstance(block, TableBlock)]
+    assert len(tables) == 1
+    table = tables[0]
+    assert table.header == ["Modello", "Prezzo"]
+    assert table.rows[0].cell_map() == {"Modello": "A1", "Prezzo": "10,00"}
+    assert "Modello: B2" in document.text
+    assert table.page == 1
+
+
+def test_parse_pdf_detects_heading():
+    pdf = build_pdf([("heading", "Capitolo Primo"), ("text", "Paragrafo di prova.")])
+    document = parse_pdf(pdf)
+
+    assert any(isinstance(block, Heading) for block in document.blocks)
+
+
+def test_parse_pdf_preserves_text_around_table():
+    pdf = build_pdf(
+        [
+            ("text", "Testo prima della tabella."),
+            ("table", ["Colonna"], [["valore"]], True),
+            ("text", "Testo dopo la tabella."),
+        ]
+    )
+    document = parse_pdf(pdf)
+
+    assert "Testo prima della tabella." in document.text
+    assert "Testo dopo la tabella." in document.text
+
+
+def test_parse_pdf_multiline_and_empty_cells():
+    pdf = build_pdf(
+        [
+            (
+                "table",
+                ["Descrizione", "Note"],
+                [["Prima riga\nseconda riga", ""], ["Solo testo", "ok"]],
+                True,
+            )
+        ]
+    )
+    document = parse_pdf(pdf)
+
+    table = next(block for block in document.blocks if isinstance(block, TableBlock))
+    assert len(table.rows) == 2
+    first = table.rows[0].cell_map()
+    assert "Prima riga" in first["Descrizione"]
+    assert first["Note"] == ""
+    assert table.rows[1].cell_map()["Note"] == "ok"
+
+
+def test_parse_pdf_table_values_are_not_swapped_between_rows():
+    rows = [[f"P{i}", str(i * 10)] for i in range(1, 6)]
+    pdf = build_pdf([("table", ["Nome", "Valore"], rows, True)])
+    document = parse_pdf(pdf)
+
+    table = next(block for block in document.blocks if isinstance(block, TableBlock))
+    for index, row in enumerate(table.rows, start=1):
+        mapping = row.cell_map()
+        assert mapping["Nome"] == f"P{index}"
+        assert mapping["Valore"] == str(index * 10)
+
+
+def test_parse_pdf_multi_page_table_marks_continuation():
+    rows = [[f"Riga {index}", str(index)] for index in range(1, 60)]
+    pdf = build_pdf([("table", ["Nome", "Valore"], rows, True)])
+    document = parse_pdf(pdf)
+
+    tables = [block for block in document.blocks if isinstance(block, TableBlock)]
+    assert document.page_count >= 2
+    assert tables, "expected at least one reconstructed table"
+    total_rows = sum(len(table.rows) for table in tables)
+    assert total_rows == len(rows)
+
+
+def test_parse_pdf_marks_repeated_header_footer():
+    pdf = build_pdf(
+        [
+            ("text", "Pagina uno."),
+            ("pagebreak",),
+            ("text", "Pagina due."),
+            ("pagebreak",),
+            ("text", "Pagina tre."),
+        ],
+        header="Documento Riservato",
+        footer="Uso interno",
+    )
+    document = parse_pdf(pdf)
+
+    repeated = [block for block in document.blocks if block.repeated_layout]
+    texts = {block.text for block in repeated if isinstance(block, Paragraph)}
+    assert "Documento Riservato" in texts
+
+
+def test_parse_pdf_multi_column_does_not_lose_content():
+    pdf = build_pdf(
+        [
+            (
+                "table",
+                None,
+                [
+                    ["Testo colonna sinistra con parole.", "Testo colonna destra con parole."],
+                    ["Altra riga sinistra.", "Altra riga destra."],
+                ],
+                False,
+            )
+        ]
+    )
+    document = parse_pdf(pdf)
+
+    assert "colonna sinistra" in document.text
+    assert "colonna destra" in document.text
+
+
+def test_parse_pdf_empty_file_has_no_text_layer():
+    document = parse_pdf(make_pdf(""))
+
+    assert document.has_text_layer() is False

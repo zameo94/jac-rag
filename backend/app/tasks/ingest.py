@@ -1,7 +1,4 @@
-from collections.abc import Callable
-
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
-from sqlmodel.ext.asyncio.session import AsyncSession
+import logging
 
 from app.core.config import get_settings
 from app.core.tkq import broker
@@ -10,14 +7,39 @@ from app.models import Document
 from app.schemas.document import DocumentStatus
 from app.services import storage
 from app.services.rag import embeddings, vector_store
-from app.services.rag.chunker import chunk_text
+from app.services.rag.chunker import ChunkingConfig, ChunkMetadata, chunk_document
 from app.services.rag.language import detect_language
+from app.services.rag.normalize import normalize_document
 from app.services.rag.parsers import get_parser
 
-SessionFactory = async_sessionmaker[AsyncSession]
+logger = logging.getLogger(__name__)
 
 
-async def _mark_failed(session_factory: SessionFactory, document_id: int, error: str) -> None:
+def _chunking_config() -> ChunkingConfig:
+    settings = get_settings()
+    return ChunkingConfig(
+        target_size=settings.chunk_size,
+        max_size=settings.chunk_max_size,
+        overlap=settings.chunk_overlap,
+        table_context=settings.chunk_table_context,
+        section_context=settings.chunk_section_context,
+        include_metadata=settings.chunk_include_metadata,
+    )
+
+
+def _metadata_payload(metadata: ChunkMetadata) -> dict[str, object]:
+    return {
+        "page": metadata.page,
+        "block_type": metadata.block_type.value if metadata.block_type else None,
+        "section": list(metadata.section) if metadata.section else None,
+        "table_id": metadata.table_id,
+        "row_indices": list(metadata.row_indices) if metadata.row_indices else None,
+        "source_block_ids": list(metadata.source_block_ids) if metadata.source_block_ids else None,
+        "oversized": metadata.oversized,
+    }
+
+
+async def _mark_failed(session_factory, document_id: int, error: str) -> None:
     async with session_factory() as session:
         document = await session.get(Document, document_id)
         if document is None:
@@ -28,11 +50,7 @@ async def _mark_failed(session_factory: SessionFactory, document_id: int, error:
         await session.commit()
 
 
-async def run_ingestion(
-    document_id: int,
-    session_factory: SessionFactory,
-    qdrant_client,
-) -> str:
+async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
     settings = get_settings()
 
     async with session_factory() as session:
@@ -53,23 +71,36 @@ async def run_ingestion(
 
     try:
         content = storage.read_file(storage_path)
-        parsed = get_parser(mime)(content)
+        parsed = get_parser(mime).parse(content, source=filename)
+        document_ir = normalize_document(parsed)
+        if settings.drop_repeated_layout:
+            document_ir.blocks = [block for block in document_ir.blocks if not block.repeated_layout]
     except Exception as exc:
         await _mark_failed(session_factory, document_id, f"parse_error: {exc}")
         return "failed"
 
-    if not parsed.has_text_layer():
+    diagnostics = document_ir.diagnostics
+    diagnostics.repeated_layout_blocks = sum(
+        1 for block in document_ir.blocks if block.repeated_layout
+    )
+    if settings.parser_debug:
+        logger.info("extraction diagnostics source=%s %s", filename, diagnostics.as_dict())
+    else:
+        diagnostics.log(logger, source=filename)
+
+    if not document_ir.has_text_layer():
         await _mark_failed(session_factory, document_id, "no_text_layer")
         return "no_text_layer"
 
-    chunks = chunk_text(parsed.text, settings.chunk_size, settings.chunk_overlap)
+    chunks = chunk_document(document_ir, _chunking_config())
     if not chunks:
         await _mark_failed(session_factory, document_id, "no_text_layer")
         return "no_text_layer"
 
-    language = detect_language(parsed.text)
+    language = detect_language(document_ir.text)
     texts = [chunk.text for chunk in chunks]
     vectors = embeddings.embed_texts(texts)
+    metadatas = [_metadata_payload(chunk.metadata) for chunk in chunks]
 
     await vector_store.delete_document_chunks(qdrant_client, tenant_id, document_id)
     await vector_store.upsert_chunks(
@@ -79,6 +110,7 @@ async def run_ingestion(
         filename,
         [(chunk.index, chunk.text) for chunk in chunks],
         vectors,
+        metadatas=metadatas,
     )
 
     async with session_factory() as session:

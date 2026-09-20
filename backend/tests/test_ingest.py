@@ -140,3 +140,46 @@ async def test_ingestion_isolates_tenants(session_factory, qdrant):
 
     assert await qdrant.collection_exists("tenant_1")
     assert await qdrant.collection_exists("tenant_2")
+
+
+async def test_ingestion_stores_structure_metadata(session_factory, qdrant):
+    content = (
+        "# Listino\n\n"
+        "| Modello | Prezzo |\n| --- | --- |\n"
+        "| A1 | 10,00 |\n| B2 | 20,00 |\n"
+    ).encode()
+    document_id = await make_document(
+        session_factory, filename="listino.md", mime="text/markdown", content=content
+    )
+
+    await run_ingestion(document_id, session_factory, qdrant)
+
+    points, _ = await qdrant.scroll("tenant_1", limit=100, with_payload=True)
+    table_points = [
+        point
+        for point in points
+        if point.payload and point.payload.get("block_type") == "table_row"
+    ]
+    assert table_points
+    assert all(point.payload.get("table_id") for point in table_points)
+    assert all(point.payload.get("section") == ["Listino"] for point in table_points)
+
+    row_indices = sorted(
+        index for point in table_points for index in point.payload.get("row_indices", [])
+    )
+    assert row_indices == [0, 1]
+
+
+async def test_ingestion_preserves_every_table_row(session_factory, qdrant):
+    rows = "".join(f"| P{index} | {index} |\n" for index in range(1, 9))
+    content = f"| Nome | Valore |\n| --- | --- |\n{rows}".encode()
+    document_id = await make_document(
+        session_factory, filename="rows.md", mime="text/markdown", content=content
+    )
+
+    await run_ingestion(document_id, session_factory, qdrant)
+
+    points, _ = await qdrant.scroll("tenant_1", limit=100, with_payload=True)
+    combined = "\n".join(point.payload.get("text", "") for point in points if point.payload)
+    for index in range(1, 9):
+        assert f"Nome: P{index}" in combined or f"P{index}" in combined

@@ -52,21 +52,22 @@ async def upsert_chunks(
     filename: str,
     chunks: list[tuple[int, str]],
     vectors: list[list[float]],
+    metadatas: list[dict] | None = None,
 ) -> int:
     await ensure_collection(client, tenant_id)
-    points = [
-        PointStruct(
-            id=_point_id(document_id, index),
-            vector=vector,
-            payload={
-                "document_id": document_id,
-                "chunk_index": index,
-                "text": text,
-                "filename": filename,
-            },
+    points = []
+    for position, ((index, text), vector) in enumerate(zip(chunks, vectors)):
+        payload: dict = {
+            "document_id": document_id,
+            "chunk_index": index,
+            "text": text,
+            "filename": filename,
+        }
+        if metadatas is not None and position < len(metadatas):
+            payload.update(metadatas[position])
+        points.append(
+            PointStruct(id=_point_id(document_id, index), vector=vector, payload=payload)
         )
-        for (index, text), vector in zip(chunks, vectors)
-    ]
     if points:
         await client.upsert(collection_name(tenant_id), points=points)
     return len(points)

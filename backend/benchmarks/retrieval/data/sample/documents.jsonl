@@ -1,0 +1,5 @@
+{"document_id": "prose", "mime": "text/markdown", "path": "doc_prose.md"}
+{"document_id": "catalog", "mime": "text/markdown", "path": "doc_catalog.md"}
+{"document_id": "legal", "mime": "text/markdown", "path": "doc_legal.md"}
+{"document_id": "technical", "mime": "text/markdown", "path": "doc_technical.md"}
+{"document_id": "notes", "mime": "text/plain", "path": "doc_notes.txt"}

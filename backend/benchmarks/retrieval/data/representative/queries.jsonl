@@ -1,0 +1,55 @@
+{"case_id": "prose-1", "category": "prose", "query": "Dove ha sede principale l'azienda?", "relevant_document_ids": ["handbook"], "expected_substrings": ["sede principale a Zurigo"]}
+{"case_id": "prose-2", "category": "prose", "query": "Quanti dipendenti ha oggi Nordwind Systems?", "relevant_document_ids": ["handbook"], "expected_substrings": ["340 dipendenti"]}
+{"case_id": "prose-3", "category": "prose", "query": "Qual e la missione dichiarata dell'azienda?", "relevant_document_ids": ["handbook"], "expected_substrings": ["monitoraggio di impianti industriali complessi"]}
+{"case_id": "prose-4", "category": "prose", "query": "Quali valori guidano il lavoro quotidiano?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Trasparenza"]}
+{"case_id": "prose-5", "category": "prose", "query": "In quanti paesi europei opera l'azienda?", "relevant_document_ids": ["handbook"], "expected_substrings": ["sei paesi europei"]}
+{"case_id": "prose-6", "category": "prose", "query": "Dove si trova il secondo stabilimento produttivo?", "relevant_document_ids": ["handbook"], "expected_substrings": ["secondo stabilimento produttivo"]}
+{"case_id": "heading-1", "category": "heading", "query": "Cosa descrive la sezione Ferie annuali?", "relevant_document_ids": ["handbook"], "expected_substrings": ["26 giorni di ferie"]}
+{"case_id": "heading-2", "category": "heading", "query": "Quali limiti indica la sezione Trasferte?", "relevant_document_ids": ["handbook"], "expected_substrings": ["420 EUR"]}
+{"case_id": "heading-3", "category": "heading", "query": "Cosa contiene la sezione Codici di errore?", "relevant_document_ids": ["api"], "expected_substrings": ["E-4021"]}
+{"case_id": "heading-4", "category": "heading", "query": "Quali informazioni fornisce la sezione Limiti di utilizzo?", "relevant_document_ids": ["api"], "expected_substrings": ["1000 richieste"]}
+{"case_id": "heading-5", "category": "heading", "query": "Cosa descrive la sezione Edge gateway?", "relevant_document_ids": ["glossary"], "expected_substrings": ["inoltra al cloud"]}
+{"case_id": "heading-6", "category": "heading", "query": "Cosa contiene la sezione Durata e rinnovo?", "relevant_document_ids": ["policies"], "expected_substrings": ["ventiquattro mesi"]}
+{"case_id": "table-1", "category": "table", "query": "Quali sensori di pressione sono elencati nel catalogo?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-SEN-P2"]}
+{"case_id": "table-2", "category": "table", "query": "Quali modelli di controller sono disponibili?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-CTL-16"]}
+{"case_id": "table-3", "category": "table", "query": "Quali gateway compaiono nel catalogo?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-GW-ETH"]}
+{"case_id": "table-4", "category": "table", "query": "Quali voci elenca la tabella dei contatti interni?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Tomas Bares"]}
+{"case_id": "table-5", "category": "table", "query": "Quali metodi sono previsti per la rimozione di un dispositivo?", "relevant_document_ids": ["api"], "expected_substrings": ["/v2/devices/{id}"]}
+{"case_id": "table-6", "category": "table", "query": "Quali codici di errore sono documentati?", "relevant_document_ids": ["api"], "expected_substrings": ["E-4290"]}
+{"case_id": "numbers-1", "category": "numbers", "query": "Qual e il corrispettivo annuale del servizio?", "relevant_document_ids": ["policies"], "expected_substrings": ["48.000 EUR"]}
+{"case_id": "numbers-2", "category": "numbers", "query": "Qual e la penale per ritardo nel pagamento?", "relevant_document_ids": ["policies"], "expected_substrings": ["5%"]}
+{"case_id": "numbers-3", "category": "numbers", "query": "Qual e il budget formativo annuale per dipendente?", "relevant_document_ids": ["handbook"], "expected_substrings": ["1.500 EUR"]}
+{"case_id": "numbers-4", "category": "numbers", "query": "Qual e il rimborso massimo per una trasferta nazionale?", "relevant_document_ids": ["handbook"], "expected_substrings": ["180 EUR"]}
+{"case_id": "numbers-5", "category": "numbers", "query": "Qual e la disponibilita mensile garantita dall'accordo sul livello di servizio?", "relevant_document_ids": ["glossary"], "expected_substrings": ["99,9%"]}
+{"case_id": "numbers-6", "category": "numbers", "query": "Quanti mesi di garanzia hanno i sensori del catalogo?", "relevant_document_ids": ["catalog"], "expected_substrings": ["trentasei mesi"]}
+{"case_id": "numbers-7", "category": "numbers", "query": "Qual e il rimborso pasto per ogni giornata fuori sede?", "relevant_document_ids": ["handbook"], "expected_substrings": ["12 EUR"]}
+{"case_id": "codes-1", "category": "codes", "query": "NW-SEN-T12", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-SEN-T12"]}
+{"case_id": "codes-2", "category": "codes", "query": "Qual e il codice del gateway LTE?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-GW-LTE"]}
+{"case_id": "codes-3", "category": "codes", "query": "Qual e il codice del controller base?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-CTL-4"]}
+{"case_id": "codes-4", "category": "codes", "query": "Qual e il codice del sensore Cryo?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-SEN-T9"]}
+{"case_id": "codes-5", "category": "codes", "query": "Qual e il codice di errore per chiave non valida?", "relevant_document_ids": ["api"], "expected_substrings": ["E-4001"]}
+{"case_id": "codes-6", "category": "codes", "query": "Qual e il codice del sensore di pressione ad alta precisione?", "relevant_document_ids": ["catalog"], "expected_substrings": ["NW-SEN-P8"]}
+{"case_id": "proper-nouns-1", "category": "proper_nouns", "query": "Chi ha fondato Nordwind Systems?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Lena Vogt"]}
+{"case_id": "proper-nouns-2", "category": "proper_nouns", "query": "Come si chiama il co-fondatore dell'azienda?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Marco Reiter"]}
+{"case_id": "proper-nouns-3", "category": "proper_nouns", "query": "Chi si occupa di Risorse umane?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Giulia Sturm"]}
+{"case_id": "proper-nouns-4", "category": "proper_nouns", "query": "Chi e il referente per la sicurezza sul lavoro?", "relevant_document_ids": ["handbook"], "expected_substrings": ["Elena Kostner"]}
+{"case_id": "proper-nouns-5", "category": "proper_nouns", "query": "Quale azienda e indicata come fornitore nel contratto?", "relevant_document_ids": ["policies"], "expected_substrings": ["Nordwind Systems AG"]}
+{"case_id": "proper-nouns-6", "category": "proper_nouns", "query": "Quale tribunale e competente per le controversie?", "relevant_document_ids": ["policies"], "expected_substrings": ["Tribunale di Bolzano"]}
+{"case_id": "semantic-1", "category": "semantic", "query": "Come si chiama lo spazio riservato a una singola organizzazione sulla piattaforma?", "relevant_document_ids": ["glossary"], "expected_substrings": ["spazio isolato"]}
+{"case_id": "semantic-2", "category": "semantic", "query": "Cosa permette di inviare le misure al cloud anche senza rete stabile?", "relevant_document_ids": ["glossary"], "expected_substrings": ["connettivita stabile"]}
+{"case_id": "semantic-3", "category": "semantic", "query": "Da quanti giorni posso restituire un prodotto acquistato?", "relevant_document_ids": ["faq"], "expected_substrings": ["quarantacinque giorni"]}
+{"case_id": "semantic-4", "category": "semantic", "query": "Qual e il canale per chiedere assistenza tecnica?", "relevant_document_ids": ["faq"], "expected_substrings": ["supporto@nordwind.example"]}
+{"case_id": "semantic-5", "category": "semantic", "query": "Per quanto tempo sono coperti i prodotti acquistati?", "relevant_document_ids": ["faq"], "expected_substrings": ["trentasei mesi"]}
+{"case_id": "semantic-6", "category": "semantic", "query": "Cosa accade automaticamente ai gateway ogni notte?", "relevant_document_ids": ["faq"], "expected_substrings": ["aggiorna automaticamente ogni notte"]}
+{"case_id": "legal-1", "category": "legal", "query": "Qual e il preavviso richiesto per il recesso?", "relevant_document_ids": ["policies"], "expected_substrings": ["sessanta giorni"]}
+{"case_id": "legal-2", "category": "legal", "query": "Qual e l'importo massimo di responsabilita del fornitore?", "relevant_document_ids": ["policies"], "expected_substrings": ["100.000 EUR"]}
+{"case_id": "legal-3", "category": "legal", "query": "Il contratto si rinnova automaticamente alla scadenza?", "relevant_document_ids": ["policies"], "expected_substrings": ["rinnovo automatico"]}
+{"case_id": "legal-4", "category": "legal", "query": "Dopo quanti solleciti e consentita la risoluzione per inadempimento?", "relevant_document_ids": ["policies"], "expected_substrings": ["due solleciti formali"]}
+{"case_id": "legal-5", "category": "legal", "query": "Dove ha sede il fornitore secondo il contratto?", "relevant_document_ids": ["policies"], "expected_substrings": ["sede a Zurigo"]}
+{"case_id": "legal-6", "category": "legal", "query": "In quante rate e suddiviso il pagamento?", "relevant_document_ids": ["policies"], "expected_substrings": ["quattro rate trimestrali"]}
+{"case_id": "technical-1", "category": "technical", "query": "Quale versione ha introdotto la ricerca full-text?", "relevant_document_ids": ["releases"], "expected_substrings": ["ricerca full-text nelle misure"]}
+{"case_id": "technical-2", "category": "technical", "query": "Quale versione ha aggiunto il supporto ai gateway LTE?", "relevant_document_ids": ["releases"], "expected_substrings": ["supporto ai gateway LTE"]}
+{"case_id": "technical-3", "category": "technical", "query": "Quale azione si consiglia per una chiave non valida?", "relevant_document_ids": ["api"], "expected_substrings": ["Verificare X-Api-Key"]}
+{"case_id": "technical-4", "category": "technical", "query": "Che formato hanno i parametri temporali delle misure?", "relevant_document_ids": ["api"], "expected_substrings": ["ISO 8601"]}
+{"case_id": "technical-5", "category": "technical", "query": "Qual e lo stato restituito quando si supera il limite di richieste?", "relevant_document_ids": ["api"], "expected_substrings": ["stato 429"]}
+{"case_id": "technical-6", "category": "technical", "query": "Cosa e stato corretto nella versione 3.1.1?", "relevant_document_ids": ["releases"], "expected_substrings": ["chiavi API scadute"]}

@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     embedding_dim: int
     chunk_size: int
     chunk_overlap: int
+    chunk_max_size: int
+    chunk_table_context: bool
+    chunk_section_context: bool
+    chunk_include_metadata: bool
+    drop_repeated_layout: bool
+    parser_debug: bool
     min_chars_per_page: int
     relevance_threshold: float
     retrieval_top_k: int
