@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     relevance_threshold: float
     retrieval_top_k: int
 
+    ocr_enabled: bool
+    ocr_dpi: int
+    ocr_min_confidence: float
+    ocr_image_dominance_ratio: float
+
     ollama_base_url: str
     ollama_default_model: str
     llm_default_provider: str

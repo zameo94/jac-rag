@@ -18,7 +18,7 @@ from app.services.rag.parsers import (
     resolve_mime,
 )
 from app.services.rag.parsers.base import DocumentParser
-from tests.fixtures import build_pdf, make_docx_document, make_markdown, make_pdf
+from tests.fixtures import build_pdf, make_docx_document, make_markdown, make_pdf, make_positioned_pdf
 
 # --------------------------------------------------------------------------- #
 # Registry                                                                     #
@@ -312,3 +312,38 @@ def test_parse_pdf_empty_file_has_no_text_layer():
     document = parse_pdf(make_pdf(""))
 
     assert document.has_text_layer() is False
+
+
+def test_parse_pdf_preserves_label_value_relation():
+    pdf = make_positioned_pdf([(72, 700, "Netto in busta"), (300, 700, "1.821,00")])
+
+    document = parse_pdf(pdf)
+
+    assert "Netto in busta: 1.821,00" in document.text
+    assert any(isinstance(block, Paragraph) for block in document.blocks)
+
+
+def test_parse_pdf_does_not_pair_two_values():
+    pdf = make_positioned_pdf([(72, 700, "2.500,00"), (300, 700, "1.821,00")])
+
+    document = parse_pdf(pdf)
+
+    assert "2.500,00" in document.text
+    assert "1.821,00" in document.text
+    assert ": 1.821,00" not in document.text
+
+
+def test_parse_pdf_links_column_header_to_value():
+    pdf = make_positioned_pdf(
+        [
+            (72, 740, "LORDO"),
+            (300, 740, "NETTO IN BUSTA"),
+            (72, 700, "2.500,00"),
+            (300, 700, "1.821,00"),
+        ]
+    )
+
+    document = parse_pdf(pdf)
+
+    assert "NETTO IN BUSTA: 1.821,00" in document.text
+    assert "LORDO: 2.500,00" in document.text

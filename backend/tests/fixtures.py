@@ -121,6 +121,20 @@ def build_pdf(
     return buffer.getvalue()
 
 
+from reportlab.pdfgen import canvas
+
+
+def make_positioned_pdf(items: list[tuple[float, float, str]], pagesize=A4) -> bytes:
+    """Draw text at exact coordinates: items as (x, y_from_bottom, text)."""
+    buffer = BytesIO()
+    pdf_canvas = canvas.Canvas(buffer, pagesize=pagesize)
+    for x, y, text in items:
+        pdf_canvas.drawString(x, y, text)
+    pdf_canvas.showPage()
+    pdf_canvas.save()
+    return buffer.getvalue()
+
+
 def make_docx(paragraphs: list[str]) -> bytes:
     document = DocxDocument()
     for paragraph in paragraphs:
