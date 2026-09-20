@@ -161,6 +161,61 @@ async def test_get_document_status(client):
     assert response.json()["status"] == "pending"
 
 
+async def test_download_document_inline(client):
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+    document = (await upload(client, owner, tenant["id"], content=b"hello world")).json()
+
+    response = await client.get(
+        f"{TENANTS_URL}/{tenant['id']}/documents/{document['id']}/file", headers=owner
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"hello world"
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "inline" in response.headers["content-disposition"]
+
+
+async def test_download_document_requires_membership(client):
+    owner = await register_and_login(client, "owner@example.com")
+    outsider = await register_and_login(client, "outsider@example.com")
+    tenant = await create_tenant(client, owner)
+    document = (await upload(client, owner, tenant["id"])).json()
+
+    response = await client.get(
+        f"{TENANTS_URL}/{tenant['id']}/documents/{document['id']}/file",
+        headers=outsider,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "NOT_A_MEMBER"
+
+
+async def test_download_unknown_document_returns_404(client):
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+
+    response = await client.get(
+        f"{TENANTS_URL}/{tenant['id']}/documents/999999/file", headers=owner
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "DOCUMENT_NOT_FOUND"
+
+
+async def test_download_requires_authentication(client):
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+    document = (await upload(client, owner, tenant["id"])).json()
+    client.cookies.clear()
+
+    response = await client.get(
+        f"{TENANTS_URL}/{tenant['id']}/documents/{document['id']}/file"
+    )
+
+    assert response.status_code == 401
+
+
 async def test_get_document_from_other_tenant_returns_404(client):
     owner_a = await register_and_login(client, "owner-a@example.com")
     tenant_a = await create_tenant(client, owner_a, name="Alpha", slug="alpha")

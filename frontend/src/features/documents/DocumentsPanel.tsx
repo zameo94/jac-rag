@@ -118,7 +118,16 @@ export function DocumentsPanel() {
           <tbody>
             {documents.map((doc) => (
               <tr key={doc.id} className="border-b border-slate-100">
-                <td className="py-2">{doc.filename}</td>
+                <td className="py-2">
+                  <a
+                    href={`/api/v1/tenants/${tenantId}/documents/${doc.id}/file`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-900 hover:underline"
+                  >
+                    {doc.filename}
+                  </a>
+                </td>
                 <td className="py-2 text-slate-500">{formatSize(doc.size)}</td>
                 <td className="py-2">
                   <span className="rounded bg-slate-100 px-2 py-0.5">

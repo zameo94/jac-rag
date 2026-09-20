@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterator, Sequence
 from io import BytesIO
-from typing import Iterator
 
 from docx import Document as DocxDocument
 from docx.oxml.ns import qn
@@ -94,7 +94,13 @@ class DocxParser(DocumentParser):
         "application/msword",
     )
 
-    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+    def parse(
+        self,
+        content: bytes,
+        *,
+        source: str | None = None,
+        languages: Sequence[str] | None = None,
+    ) -> Document:
         document = DocxDocument(BytesIO(content))
         diagnostics = ExtractionDiagnostics(pages=1)
         blocks: list[BlockLike] = []

@@ -4,11 +4,13 @@ import logging
 import math
 import re
 import statistics
+from collections.abc import Sequence
 from io import BytesIO
 from typing import Any
 
 import pdfplumber
 
+from app.core.config import get_settings
 from app.services.rag.diagnostics import ExtractionDiagnostics
 from app.services.rag.ir import (
     BlockLike,
@@ -23,6 +25,20 @@ from app.services.rag.ir import (
     TableRow,
 )
 from app.services.rag.parsers.base import DocumentParser
+from app.services.rag.parsers.ocr import (
+    OcrContext,
+    PdfPageRenderer,
+    augment_layout,
+    get_ocr_engine,
+    ocr_languages,
+)
+from app.services.rag.parsers.pdf_layout import (
+    build_page_layout,
+    group_rows,
+    header_label_map,
+    reconstruct_line_text,
+    tokens_in_band,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,35 +276,138 @@ def _find_tables(page) -> list:
     return [table for table in candidate if _fallback_table_valid(table.extract() or [])]
 
 
+def _layout_lines(
+    lines: list[dict[str, Any]], layout, labels: dict[int, str] | None = None
+) -> list[dict[str, Any]]:
+    if not layout.tokens:
+        return lines
+    used: set[int] = set()
+    adjusted: list[dict[str, Any]] = []
+    for line in lines:
+        band = tuple(
+            token
+            for token in tokens_in_band(layout.tokens, line["top"], line["bottom"])
+            if id(token) not in used
+        )
+        if len(band) > 1:
+            text = reconstruct_line_text(band, labels=labels)
+            if text:
+                used.update(id(token) for token in band)
+                adjusted.append({**line, "text": text})
+                continue
+        adjusted.append(line)
+    return adjusted
+
+
+def _rows_to_lines(layout, labels: dict[int, str] | None = None) -> list[dict[str, Any]]:
+    lines: list[dict[str, Any]] = []
+    for row in group_rows(layout.tokens):
+        text = reconstruct_line_text(list(row.tokens), labels=labels)
+        if not text:
+            continue
+        lines.append(
+            {
+                "text": text,
+                "top": row.top,
+                "bottom": row.bottom,
+                "x0": min(token.x0 for token in row.tokens),
+                "x1": max(token.x1 for token in row.tokens),
+                "chars": [],
+            }
+        )
+    return lines
+
+
+def _bands_overlap(top: float, bottom: float, other_top: float, other_bottom: float) -> bool:
+    return top < other_bottom and bottom > other_top
+
+
+def _ocr_only_lines(
+    existing_lines: list[dict[str, Any]],
+    layout,
+    labels: dict[int, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Rows that exist only because of OCR (no matching text-layer line)."""
+    extra: list[dict[str, Any]] = []
+    for row in group_rows(layout.tokens):
+        if not any(token.source == "ocr" for token in row.tokens):
+            continue
+        if any(
+            _bands_overlap(row.top, row.bottom, line["top"], line["bottom"])
+            for line in existing_lines
+        ):
+            continue
+        text = reconstruct_line_text(list(row.tokens), labels=labels)
+        if not text:
+            continue
+        extra.append(
+            {
+                "text": text,
+                "top": row.top,
+                "bottom": row.bottom,
+                "x0": min(token.x0 for token in row.tokens),
+                "x1": max(token.x1 for token in row.tokens),
+                "chars": [],
+            }
+        )
+    return extra
+
+
 class PdfParser(DocumentParser):
     mime_types = ("application/pdf",)
 
-    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+    def parse(
+        self,
+        content: bytes,
+        *,
+        source: str | None = None,
+        languages: Sequence[str] | None = None,
+    ) -> Document:
         diagnostics = ExtractionDiagnostics()
         blocks: list[BlockLike] = []
+        settings = get_settings()
+        renderer: PdfPageRenderer | None = None
+        ocr_context: OcrContext | None = None
+        if settings.ocr_enabled:
+            engine = get_ocr_engine()
+            if engine is not None:
+                renderer = PdfPageRenderer(content)
+                ocr_context = OcrContext(
+                    engine=engine,
+                    renderer=renderer,
+                    languages=ocr_languages(languages),
+                    dpi=settings.ocr_dpi,
+                    min_text_chars=settings.min_chars_per_page,
+                    image_dominance_ratio=settings.ocr_image_dominance_ratio,
+                )
 
-        with pdfplumber.open(BytesIO(content)) as pdf:
-            pages = pdf.pages
-            diagnostics.pages = len(pages)
-            repeated = _detect_repeated(pages, diagnostics)
+        try:
+            with pdfplumber.open(BytesIO(content)) as pdf:
+                pages = pdf.pages
+                diagnostics.pages = len(pages)
+                repeated = _detect_repeated(pages, diagnostics)
 
-            previous_table: TableBlock | None = None
-            previous_bottom = 0.0
+                previous_table: TableBlock | None = None
+                previous_bottom = 0.0
 
-            for page_number, page in enumerate(pages, start=1):
-                try:
-                    page_blocks, previous_table, previous_bottom = self._process_page(
-                        page,
-                        page_number,
-                        repeated,
-                        diagnostics,
-                        previous_table,
-                        previous_bottom,
-                    )
-                    blocks.extend(page_blocks)
-                except Exception as exc:
-                    diagnostics.add_warning(f"page {page_number} failed: {exc}")
-                    logger.warning("pdf page %s failed: %s", page_number, exc)
+                for page_number, page in enumerate(pages, start=1):
+                    try:
+                        page_blocks, previous_table, previous_bottom = self._process_page(
+                            page,
+                            page_number,
+                            repeated,
+                            diagnostics,
+                            previous_table,
+                            previous_bottom,
+                            ocr_context,
+                        )
+                        blocks.extend(page_blocks)
+                    except Exception as exc:
+                        diagnostics.add_warning(f"page {page_number} failed: {exc}")
+                        logger.warning("pdf page %s failed: %s", page_number, exc)
+        finally:
+            if renderer is not None:
+                renderer.close()
 
         document = Document(
             source=source, page_count=diagnostics.pages, blocks=blocks, diagnostics=diagnostics
@@ -305,15 +424,33 @@ class PdfParser(DocumentParser):
         diagnostics: ExtractionDiagnostics,
         previous_table: TableBlock | None,
         previous_bottom: float,
+        ocr_context: OcrContext | None = None,
     ) -> tuple[list[BlockLike], TableBlock | None, float]:
         page_height = page.height or 0.0
         tables = _find_tables(page)
         boxes = [table.bbox for table in tables]
 
+        layout = build_page_layout(page, page_number)
+        text_chars = sum(len(token.text) for token in layout.tokens)
+        if ocr_context is not None:
+            layout = augment_layout(layout, page, ocr_context)
+
         lines = [
             line for line in page.extract_text_lines() if not _in_any_bbox(boxes, line)
         ]
         lines.sort(key=lambda line: (round(line["top"], 1), line["x0"]))
+        labels = header_label_map(layout.tokens)
+        if (
+            ocr_context is not None
+            and text_chars < get_settings().min_chars_per_page
+            and layout.tokens
+        ):
+            lines = _rows_to_lines(layout, labels)
+        else:
+            lines = _layout_lines(lines, layout, labels)
+            if ocr_context is not None:
+                lines = lines + _ocr_only_lines(lines, layout, labels)
+                lines.sort(key=lambda line: (round(line["top"], 1), line["x0"]))
         body = _body_size(lines)
 
         items: list[tuple[float, BlockLike]] = []
