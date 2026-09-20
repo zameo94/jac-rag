@@ -7,6 +7,10 @@ from app.services.llm.base import LLMProviderError
 from app.services.llm.ollama import OLLAMA_PROVIDER_NAME
 
 EXTERNAL_API_PROVIDER_NAME = "external_api"
+KNOWN_PROVIDER_IDS: tuple[str, ...] = (
+    OLLAMA_PROVIDER_NAME,
+    EXTERNAL_API_PROVIDER_NAME,
+)
 
 
 @dataclass(frozen=True)
@@ -39,7 +43,7 @@ def provider_capabilities() -> tuple[ProviderCapability, ...]:
 
 
 def known_provider_ids() -> tuple[str, ...]:
-    return tuple(capability.id for capability in provider_capabilities())
+    return KNOWN_PROVIDER_IDS
 
 
 def get_provider_capability(provider_id: str) -> ProviderCapability | None:
