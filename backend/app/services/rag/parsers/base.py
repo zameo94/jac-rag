@@ -1,18 +1,22 @@
-from dataclasses import dataclass
+from __future__ import annotations
 
-from app.core.config import get_settings
+from abc import ABC, abstractmethod
+from typing import ClassVar
+
+from app.services.rag.ir import Document
 
 
-@dataclass(frozen=True)
-class ParsedDocument:
-    text: str
-    page_count: int
+class DocumentParser(ABC):
+    """Format-specific parser producing the Common Document IR.
 
-    @property
-    def chars_per_page(self) -> float:
-        if self.page_count <= 0:
-            return float(len(self.text))
-        return len(self.text) / self.page_count
+    New formats only need to subclass this and register their ``mime_types``.
+    """
 
-    def has_text_layer(self) -> bool:
-        return self.chars_per_page >= get_settings().min_chars_per_page
+    mime_types: ClassVar[tuple[str, ...]] = ()
+
+    @abstractmethod
+    def parse(self, content: bytes, *, source: str | None = None) -> Document:
+        raise NotImplementedError
+
+    def __call__(self, content: bytes) -> Document:
+        return self.parse(content)

@@ -40,9 +40,13 @@ backend/
       crypto.py            # encrypt/decrypt tenant secrets
       llm/                 # base.py, ollama.py, openai.py, factory.py
       rag/
-        parsers/           # pdf.py, docx.py, text.py, __init__.py (registry)
+        ir.py              # Common Document IR (blocks, tables, rows, cells)
+        diagnostics.py     # extraction/oversized diagnostics
+        normalize.py       # order, block ids, section path propagation
+        serialization.py   # IR -> self-descriptive text
+        chunker.py         # structure-aware chunker over the Document IR
         embeddings.py      # fastembed wrapper
-        ingest.py          # parse -> chunk -> embed -> upsert
+        ingest.py          # parse -> IR -> chunk -> embed -> upsert
         retrieve.py        # relevance gate
         chat.py            # prompt + generation
     tasks/                 # taskiq tasks (own AsyncSession)
@@ -130,13 +134,26 @@ messages      (id, conversation_id, role, content, sources JSON, created_at)
 
 ## Document ingestion & formats
 
-- Supported: **PDF + DOCX + TXT/MD**, behind a **parser registry** (`get_parser(mime)`).
-  Adding XML/HTML/CSV later = one new parser file, no changes elsewhere.
+- Supported: **PDF + DOCX + Markdown + TXT**, behind a **parser registry**
+  (`get_parser(mime)`); every parser returns the **Common Document IR**
+  (`app/services/rag/ir.py`). Adding a format = one parser file, no chunker changes.
+- Pipeline: `parser -> Document IR -> normalize -> structure-aware chunk -> embed -> Qdrant`.
+- **The chunker never destroys reconstructed structure**: table rows and list items are
+  atomic and are never split because of a size limit; oversized atomic units are kept
+  intact and flagged. Paragraphs may be split deterministically.
+- Tables are structured (`TableBlock` -> header + rows + cells) and serialized
+  self-descriptively (`Colonna: valore`).
+- Chunk text uses the structured header `Documento:` / `Sezione:` / `Colonne:`
+  (tables) / `Contenuto:`. Headings whose section has content are not emitted as
+  standalone chunks; their title is propagated to the content chunk via
+  `section_path`. Orphan headings (no content) stay as standalone chunks.
+- `CHUNK_SIZE` is a soft target, `CHUNK_MAX_SIZE` the ceiling. Repeated header/footer
+  blocks are marked and kept by default (`DROP_REPEATED_LAYOUT` to drop them).
 - PDF text layer only. **No OCR in MVP.** After extraction, if chars/page are below a
   threshold, mark document `failed` with reason `no_text_layer` (never create an empty
   index silently).
-- Chunking: recursive character/token splitter with overlap; separators shared by IT/EN.
-  Language-agnostic. Store `documents.language` (detected) for observability.
+- Chunk metadata (page, block_type, table_id, row_indices, section, source_block_ids)
+  is stored in the Qdrant payload for provenance.
 
 ## Embeddings (fixed, server-side)
 

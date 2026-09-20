@@ -1,0 +1,4 @@
+{
+  "name": "representative",
+  "description": "Larger multilingual corpus (7 documents) exercising nested headings, paragraphs, lists, small/large tables, codes, numbers, proper nouns, cross-document lookalikes and paraphrased queries."
+}
