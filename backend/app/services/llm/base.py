@@ -64,3 +64,7 @@ class LLMProvider(ABC):
         temperature: float = 0.0,
     ) -> AsyncIterator[str]:
         raise NotImplementedError
+
+    async def aclose(self) -> None:
+        """Release provider resources. Stateless providers need not override."""
+        return None
