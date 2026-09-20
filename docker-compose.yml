@@ -42,6 +42,15 @@ services:
       timeout: 3s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jac_rag_ollama
+    restart: always
+    ports:
+      - "${OLLAMA_PORT:?set OLLAMA_PORT in .env}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   backend:
     build: ./backend
     container_name: jac_rag_backend
@@ -76,6 +85,9 @@ services:
       - MIN_CHARS_PER_PAGE=${MIN_CHARS_PER_PAGE:?}
       - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:?}
       - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:?}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
     ports:
       - "${BACKEND_PORT:?set BACKEND_PORT in .env}:8000"
     volumes:
@@ -130,6 +142,9 @@ services:
       - MIN_CHARS_PER_PAGE=${MIN_CHARS_PER_PAGE:?}
       - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:?}
       - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:?}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
     volumes:
       - storage_data:/data/storage
       - fastembed_cache:/data/fastembed
@@ -169,3 +184,5 @@ volumes:
     name: jac_rag_storage_volume
   fastembed_cache:
     name: jac_rag_fastembed_volume
+  ollama_data:
+    name: jac_rag_ollama_volume
