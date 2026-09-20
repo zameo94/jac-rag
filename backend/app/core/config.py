@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     relevance_threshold: float
     retrieval_top_k: int
 
+    ollama_base_url: str
+    ollama_default_model: str
+    llm_default_provider: str
+
     redis_url: str
     cors_origins: str
 
