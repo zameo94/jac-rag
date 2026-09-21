@@ -11,6 +11,7 @@ from app.services.rag.ir import (
     BlockLike,
     CodeBlock,
     Document,
+    FieldBlock,
     FigureBlock,
     Heading,
     ListBlock,
@@ -88,6 +89,12 @@ def serialize_block(block: BlockLike) -> str:
         return f"{block.marker} {block.text}".strip()
     if isinstance(block, TableBlock):
         return serialize_table(block)
+    if isinstance(block, FieldBlock):
+        return "\n".join(
+            f"{item.label}: {item.value}"
+            for item in block.fields
+            if item.label and item.value
+        )
     if isinstance(block, FigureBlock):
         return block.caption.strip()
     if isinstance(block, CodeBlock):
