@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     qdrant_url: str
     qdrant_api_key: str | None = None
 
+    db_pool_size: int
+    db_max_overflow: int
+    db_pool_timeout: int
+
     embedding_model: str
     embedding_dim: int
     chunk_size: int
@@ -53,6 +57,11 @@ class Settings(BaseSettings):
     rerank_batch_size: int
     rerank_mode: Literal["warmup", "on_demand"]
     chat_context_k: int
+    chat_history_limit: int
+    chat_retention_days: int
+
+    visitor_token_expire_days: int
+    widget_rate_limit_per_minute: int
 
     ocr_enabled: bool
     ocr_dpi: int

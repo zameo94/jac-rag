@@ -41,6 +41,8 @@ export function OptionsMenu() {
 
   const links = [
     { href: "/dashboard", label: t("documents") },
+    { href: "/dashboard/playground", label: t("playground") },
+    { href: "/dashboard/conversations", label: t("conversations") },
     { href: "/dashboard/members", label: t("members") },
     { href: "/dashboard/settings", label: t("settings") },
   ];

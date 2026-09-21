@@ -16,6 +16,7 @@ class ChatSource(SQLModel):
 
 
 class ChatResponse(SQLModel):
+    conversation_id: int
     answer: str
     provider: str
     model: str

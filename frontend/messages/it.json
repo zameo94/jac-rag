@@ -142,10 +142,37 @@
       "external_api": "API esterna"
     }
   },
+  "embedKeys": {
+    "title": "Chiavi di incorporamento",
+    "name": "Nome",
+    "create": "Crea chiave",
+    "created": "Chiave creata",
+    "createdHint": "Copia questa chiave: non sarà più visibile.",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "empty": "Nessuna chiave.",
+    "active": "Attiva",
+    "inactive": "Revocata",
+    "revoke": "Revoca",
+    "restore": "Riattiva",
+    "prefix": "Prefisso",
+    "lastUsed": "Ultimo uso",
+    "never": "Mai"
+  },
+  "conversations": {
+    "title": "Conversazioni",
+    "empty": "Nessuna conversazione.",
+    "visitor": "Visitatore",
+    "user": "Utente",
+    "select": "Seleziona una conversazione."
+  },
   "playground": {
     "title": "Playground chat",
     "placeholder": "Fai una domanda sui tuoi documenti...",
     "send": "Invia",
+    "sending": "Invio...",
+    "empty": "Invia un messaggio per iniziare.",
+    "sources": "Fonti",
     "comingSoon": "Presto disponibile"
   },
   "nav": {
@@ -154,7 +181,8 @@
     "documents": "Documenti",
     "members": "Membri",
     "settings": "Impostazioni",
-    "playground": "Playground"
+    "playground": "Playground",
+    "conversations": "Conversazioni"
   },
   "breadcrumbs": {
     "label": "Percorso di navigazione"

@@ -5,7 +5,7 @@ from app.services.rag.chat.prompt import (
     refusal_message,
     resolve_locale,
 )
-from app.services.rag.chat.reply import generate_reply
+from app.services.rag.chat.reply import generate_reply, stream_reply
 
 __all__ = [
     "SYSTEM_ASSISTIVE",
@@ -14,4 +14,5 @@ __all__ = [
     "generate_reply",
     "refusal_message",
     "resolve_locale",
+    "stream_reply",
 ]

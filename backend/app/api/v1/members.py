@@ -8,7 +8,12 @@ from app.core.deps import get_current_membership, require_role
 from app.core.errors import api_error
 from app.database import get_session
 from app.models import Membership, User
-from app.schemas.membership import MemberRead, MemberUpdate, MembershipRole
+from app.schemas.membership import (
+    MemberRead,
+    MemberUpdate,
+    MembershipRead,
+    MembershipRole,
+)
 
 router = APIRouter()
 
@@ -22,6 +27,13 @@ def _to_member(membership: Membership, user: User) -> MemberRead:
         email=user.email,
         created_at=membership.created_at,
     )
+
+
+@router.get("/{tenant_id}/me", response_model=MembershipRead)
+async def my_membership(
+    membership: Membership = Depends(get_current_membership),
+) -> Membership:
+    return membership
 
 
 @router.get("/{tenant_id}/members", response_model=List[MemberRead])

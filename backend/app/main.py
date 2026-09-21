@@ -2,10 +2,21 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, chat, documents, invitations, llm, members, tenants
+from app.api.v1 import (
+    api_keys,
+    auth,
+    chat,
+    conversations,
+    documents,
+    invitations,
+    llm,
+    members,
+    tenants,
+    widget,
+)
 from app.core.config import APP_NAME, APP_VERSION, get_settings
+from app.core.cors import CorsDispatcher
 from app.core.errors import register_exception_handlers
 from app.services.rag import rerank
 
@@ -42,11 +53,9 @@ app = FastAPI(
 )
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CorsDispatcher,
+    cms_origins=settings.cors_origin_list,
+    cms_allow_headers=["*"],
 )
 
 register_exception_handlers(app)
@@ -56,8 +65,13 @@ app.include_router(tenants.router, prefix="/api/v1/tenants", tags=["Tenants"])
 app.include_router(members.router, prefix="/api/v1/tenants", tags=["Members"])
 app.include_router(invitations.router, prefix="/api/v1", tags=["Invitations"])
 app.include_router(documents.router, prefix="/api/v1/tenants", tags=["Documents"])
+app.include_router(api_keys.router, prefix="/api/v1/tenants", tags=["API keys"])
 app.include_router(chat.router, prefix="/api/v1/tenants", tags=["Chat"])
+app.include_router(
+    conversations.router, prefix="/api/v1/tenants", tags=["Conversations"]
+)
 app.include_router(llm.router, prefix="/api/v1/tenants", tags=["LLM"])
+app.include_router(widget.router, prefix="/api/v1/widget", tags=["Widget"])
 
 
 @app.get("/health", status_code=200, tags=["Health"])

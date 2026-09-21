@@ -38,7 +38,7 @@ def patch_provider(monkeypatch, provider):
     async def build(session, tenant_id, provider_id, model=None):
         return provider, "test-model"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ async def test_chat_grounded_returns_answer_and_sources(client, qdrant, monkeypa
         created.append(provider_id)
         return fake, "llama3.2"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
