@@ -302,6 +302,71 @@ def _cell_column_label(cell: PdfCell, labels: dict[int, str]) -> str | None:
     return None
 
 
+MAX_FIELDS = 120
+MAX_LABEL_LENGTH = 40
+
+
+@dataclass(frozen=True)
+class FieldPair:
+    label: str
+    value: str
+
+
+def _same_row_pairs(cells: tuple[PdfCell, ...]) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    index = 0
+    while index < len(cells):
+        cell = cells[index]
+        if (
+            _has_letters(cell.text)
+            and index + 1 < len(cells)
+            and _is_value_like(cells[index + 1].text)
+        ):
+            pairs.append((cell.text, cells[index + 1].text))
+            index += 2
+        else:
+            index += 1
+    return pairs
+
+
+def _add_field(
+    fields: list[FieldPair], seen: set[tuple[str, str]], label: str, value: str
+) -> None:
+    label = " ".join(label.split())
+    value = " ".join(value.split())
+    if not label or not value or len(label) > MAX_LABEL_LENGTH:
+        return
+    key = (label.lower(), value)
+    if key in seen:
+        return
+    seen.add(key)
+    fields.append(FieldPair(label=label, value=value))
+
+
+def extract_fields(tokens, column_gap: float | None = None) -> tuple[FieldPair, ...]:
+    """Collect exact label/value fields from the page layout.
+
+    Two deterministic, positional rules: a text cell followed by a value cell on
+    the same row, and a value cell linked to its column header. No semantics, no
+    LLM: only pairs the PDF presents as geometrically related.
+    """
+    labels = header_label_map(tokens, column_gap)
+    seen: set[tuple[str, str]] = set()
+    fields: list[FieldPair] = []
+    for row in group_rows(tokens, column_gap=column_gap):
+        for cell in row.cells:
+            if not _is_value_like(cell.text):
+                continue
+            column_label = _cell_column_label(cell, labels)
+            if column_label:
+                _add_field(fields, seen, column_label, cell.text)
+        for label, value in _same_row_pairs(row.cells):
+            _add_field(fields, seen, label, value)
+        if len(fields) >= MAX_FIELDS:
+            break
+    return tuple(fields)
+
+
 def _join_cells(cells: tuple[PdfCell, ...], labels: dict[int, str]) -> str:
     parts: list[str] = []
     index = 0

@@ -24,6 +24,7 @@ class BlockType(str, Enum):
     CODE = "code"
     QUOTE = "quote"
     GENERIC = "generic"
+    FIELD = "field"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -155,6 +156,27 @@ class GenericBlock(Block):
     text: str = ""
 
 
+@dataclass(kw_only=True)
+class Field:
+    label: str = ""
+    value: str = ""
+    page: int | None = None
+    bbox: BoundingBox | None = None
+
+
+@dataclass(kw_only=True)
+class FieldBlock(Block):
+    """A compact, self-descriptive ``label: value`` block.
+
+    Produced from the visual layout of a document (same row or same column); it
+    is not a table and carries no invented semantics.
+    """
+
+    kind: ClassVar[BlockType] = BlockType.FIELD
+
+    fields: list[Field] = field(default_factory=list)
+
+
 BlockLike = (
     Heading
     | Paragraph
@@ -165,6 +187,7 @@ BlockLike = (
     | CodeBlock
     | QuoteBlock
     | GenericBlock
+    | FieldBlock
 )
 
 

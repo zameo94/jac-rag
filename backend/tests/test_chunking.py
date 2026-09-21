@@ -2,6 +2,8 @@ from app.services.rag.chunker import ChunkingConfig, chunk_document
 from app.services.rag.ir import (
     BlockType,
     Document,
+    Field,
+    FieldBlock,
     Heading,
     ListBlock,
     ListItem,
@@ -40,6 +42,19 @@ def make_table_document(row_count: int, *, caption: str | None = None) -> Docume
         page=3,
     )
     return normalize_document(Document(page_count=3, blocks=[table]))
+
+
+def test_field_block_stays_one_chunk_even_when_large():
+    fields = [Field(label=f"Campo {index}", value=str(index)) for index in range(1, 80)]
+    document = normalize_document(
+        Document(page_count=1, blocks=[FieldBlock(fields=fields)])
+    )
+
+    chunks = chunk_document(document, make_config(target_size=100, max_size=200))
+
+    assert len(chunks) == 1
+    assert "Campo 79: 79" in chunks[0].text
+    assert chunks[0].metadata.block_type is BlockType.FIELD
 
 
 def test_table_row_is_never_split_across_chunks():

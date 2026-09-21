@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, replace
 from app.services.rag.ir import (
     BlockType,
     CodeBlock,
+    FieldBlock,
     FigureBlock,
     GenericBlock,
     Heading,
@@ -238,6 +239,25 @@ def _units_from_document(document, config: ChunkingConfig) -> list[_Unit]:
                         page=block.page,
                         section=block.section_path,
                         source_block_id=block.source_block_id,
+                    )
+                )
+        elif isinstance(block, FieldBlock):
+            text = "\n".join(
+                f"{item.label}: {item.value}"
+                for item in block.fields
+                if item.label and item.value
+            )
+            if text:
+                units.append(
+                    _Unit(
+                        text=text,
+                        group=f"fields-{block.order}",
+                        context=_section_line(block.section_path, config),
+                        block_type=BlockType.FIELD,
+                        page=block.page,
+                        section=block.section_path,
+                        source_block_id=block.source_block_id,
+                        atomic=True,
                     )
                 )
 

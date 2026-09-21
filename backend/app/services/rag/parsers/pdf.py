@@ -16,6 +16,8 @@ from app.services.rag.ir import (
     BlockLike,
     BoundingBox,
     Document,
+    Field,
+    FieldBlock,
     Heading,
     ListBlock,
     ListItem,
@@ -34,6 +36,7 @@ from app.services.rag.parsers.ocr import (
 )
 from app.services.rag.parsers.pdf_layout import (
     build_page_layout,
+    extract_fields,
     group_rows,
     header_label_map,
     reconstruct_line_text,
@@ -64,6 +67,18 @@ def _in_any_bbox(boxes: list[tuple[float, float, float, float]], obj: dict[str, 
     x0, top, x1, bottom = obj["x0"], obj["top"], obj["x1"], obj["bottom"]
     for bx0, btop, bx1, bbottom in boxes:
         if x0 >= bx0 - 1 and x1 <= bx1 + 1 and top >= btop - 1 and bottom <= bbottom + 1:
+            return True
+    return False
+
+
+def _token_in_any_bbox(boxes: list[tuple[float, float, float, float]], token) -> bool:
+    for bx0, btop, bx1, bbottom in boxes:
+        if (
+            token.x0 >= bx0 - 1
+            and token.x1 <= bx1 + 1
+            and token.top >= btop - 1
+            and token.bottom <= bbottom + 1
+        ):
             return True
     return False
 
@@ -497,6 +512,23 @@ class PdfParser(DocumentParser):
             block = _table_block(rows, page_number, sequence, table.bbox, diagnostics)
             items.append((table_top, block))
             previous_table = block
+
+        fields = extract_fields(
+            [token for token in layout.tokens if not _token_in_any_bbox(boxes, token)]
+        )
+        if fields:
+            items.append(
+                (
+                    page_height + 1.0,
+                    FieldBlock(
+                        fields=[
+                            Field(label=pair.label, value=pair.value, page=page_number)
+                            for pair in fields
+                        ],
+                        page=page_number,
+                    ),
+                )
+            )
 
         items.sort(key=lambda item: item[0])
         page_blocks = [block for _, block in items]

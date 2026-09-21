@@ -8,6 +8,8 @@ from app.schemas.setting import SettingScope
 from app.schemas.tenant import AnswerMode
 from app.services.llm import LLMProvider, LLMProviderError, LLMResponse
 from app.services.rag import embeddings, vector_store
+from app.services.rag.chat import expand_citations
+from app.services.rag.vector_store import RetrievedChunk
 from tests.helpers import register_and_login, user_id_for
 
 CHUNK_TEXT = "Il colore preferito della macchina aziendale e il blu."
@@ -214,3 +216,22 @@ async def test_chat_rejects_non_member(client, qdrant):
 
     assert response.status_code == 403
     assert response.json()["code"] == "NOT_A_MEMBER"
+
+
+def chunk(document_id: int, filename: str) -> RetrievedChunk:
+    return RetrievedChunk(
+        document_id=document_id, chunk_index=0, text="t", score=0.5, filename=filename
+    )
+
+
+def test_expand_citations_replaces_known_indices():
+    chunks = [chunk(1, "a.pdf"), chunk(2, "b.pdf")]
+
+    assert (
+        expand_citations("Vedi [1] e [2].", chunks)
+        == "Vedi [1: a.pdf] e [2: b.pdf]."
+    )
+
+
+def test_expand_citations_keeps_unknown_indices():
+    assert expand_citations("Vedi [5].", [chunk(1, "a.pdf")]) == "Vedi [5]."

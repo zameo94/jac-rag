@@ -6,6 +6,7 @@ from app.services.rag.parsers.pdf_layout import (
     PdfToken,
     PageLayout,
     build_page_layout,
+    extract_fields,
     extract_tokens,
     group_rows,
     header_label_map,
@@ -232,3 +233,44 @@ def test_header_label_map_ignores_rows_without_header():
     tokens = [tok("1.821,00", 300, 350, 130), tok("2.500,00", 10, 60, 130)]
 
     assert header_label_map(tokens) == {}
+
+
+def test_extract_fields_from_column_headers():
+    tokens = [
+        tok("LORDO", 10, 50, 100),
+        tok("NETTO IN BUSTA", 300, 380, 100),
+        tok("2.500,00", 10, 60, 130),
+        tok("1.828,00", 300, 350, 130),
+    ]
+
+    pairs = {(field.label, field.value) for field in extract_fields(tokens)}
+
+    assert ("NETTO IN BUSTA", "1.828,00") in pairs
+    assert ("LORDO", "2.500,00") in pairs
+
+
+def test_extract_fields_from_same_row():
+    tokens = [tok("Netto in busta", 10, 120, 100), tok("1.821,00", 300, 350, 100)]
+
+    pairs = {(field.label, field.value) for field in extract_fields(tokens)}
+
+    assert ("Netto in busta", "1.821,00") in pairs
+
+
+def test_extract_fields_deduplicates():
+    tokens = [
+        tok("Netto in busta", 10, 120, 100),
+        tok("1.821,00", 300, 350, 100),
+        tok("Netto in busta", 10, 120, 140),
+        tok("1.821,00", 300, 350, 140),
+    ]
+
+    pairs = [(field.label, field.value) for field in extract_fields(tokens)]
+
+    assert pairs.count(("Netto in busta", "1.821,00")) == 1
+
+
+def test_extract_fields_ignores_values_without_labels():
+    tokens = [tok("1.821,00", 10, 60, 100), tok("2.500,00", 300, 350, 100)]
+
+    assert extract_fields(tokens) == ()
