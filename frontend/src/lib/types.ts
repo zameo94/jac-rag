@@ -60,3 +60,38 @@ export interface ApiErrorPayload {
   message: string;
   details?: unknown;
 }
+
+export interface LLMProviderInfo {
+  id: string;
+  enabled: boolean;
+  models: string[];
+}
+
+export interface LLMConfig {
+  providers: LLMProviderInfo[];
+  allowed_providers: string[];
+  selected_provider: string | null;
+  default_provider: string;
+}
+
+export interface LLMSettings {
+  allowed_providers: string[];
+  default_provider: string | null;
+  model: string | null;
+  external_configured: boolean;
+  external_base_url: string | null;
+  external_model: string | null;
+}
+
+export interface LLMSettingsUpdate {
+  allowed_providers?: string[];
+  default_provider?: string;
+  model?: string;
+  external_base_url?: string;
+  external_model?: string;
+  external_api_key?: string;
+}
+
+export interface ProviderSelection {
+  selected_provider: string;
+}

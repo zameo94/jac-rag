@@ -33,6 +33,8 @@ TEST_ENV = {
     "OLLAMA_BASE_URL": "http://localhost:11434",
     "OLLAMA_DEFAULT_MODEL": "llama3.2",
     "LLM_DEFAULT_PROVIDER": "ollama",
+    "ENCRYPTION_KEY": "o4MfFKmB8dDuat5Ky6r-gbDdX6ClT9BXhAp85ZVC9xk=",
+    "EXTERNAL_API_ENABLED": "false",
     "REDIS_URL": "redis://localhost:6379/0",
     "CORS_ORIGINS": "http://localhost:3000",
     "COOKIE_SECURE": "false",

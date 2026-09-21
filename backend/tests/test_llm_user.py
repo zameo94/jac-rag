@@ -8,16 +8,16 @@ from app.services.llm import (
     LLMProviderError,
     ProviderCapability,
 )
-from app.services.llm.defaults import (
+from app.services.llm.resolution.defaults import (
     GLOBAL_DEFAULT_PROVIDER_KEY,
     global_default_provider,
 )
-from app.services.llm.tenant import (
+from app.services.llm.resolution.tenant import (
     ALLOWED_PROVIDERS_KEY,
     DEFAULT_PROVIDER_KEY,
     LLM_SETTING_TYPE,
 )
-from app.services.llm.user import (
+from app.services.llm.resolution.user import (
     SELECTED_PROVIDER_KEY,
     resolve_user_provider,
     set_user_provider,
@@ -209,7 +209,7 @@ async def test_user_selection_prevails_over_global_default(
 ):
     tenant_id = await create_tenant(session_factory)
     monkeypatch.setattr(
-        "app.services.llm.user.available_providers_for_tenant", two_available
+        "app.services.llm.resolution.user.available_providers_for_tenant", two_available
     )
     await store_user_provider(session_factory, 42, OLLAMA_PROVIDER_NAME)
     await store_global_default(session_factory, OTHER_PROVIDER)
@@ -225,7 +225,7 @@ async def test_tenant_default_prevails_over_global_default(
 ):
     tenant_id = await create_tenant(session_factory)
     monkeypatch.setattr(
-        "app.services.llm.user.available_providers_for_tenant", two_available
+        "app.services.llm.resolution.user.available_providers_for_tenant", two_available
     )
     await store_tenant_default(session_factory, tenant_id, OLLAMA_PROVIDER_NAME)
     await store_global_default(session_factory, OTHER_PROVIDER)
@@ -253,7 +253,7 @@ async def test_resolve_uses_only_available_when_default_unavailable(
 ):
     tenant_id = await create_tenant(session_factory)
     monkeypatch.setattr(
-        "app.services.llm.user.global_default_provider", returns_external
+        "app.services.llm.resolution.user.global_default_provider", returns_external
     )
 
     async with session_factory() as session:
@@ -267,9 +267,9 @@ async def test_error_when_multiple_available_and_no_default_matches(
 ):
     tenant_id = await create_tenant(session_factory)
     monkeypatch.setattr(
-        "app.services.llm.user.available_providers_for_tenant", two_available
+        "app.services.llm.resolution.user.available_providers_for_tenant", two_available
     )
-    monkeypatch.setattr("app.services.llm.user.global_default_provider", returns_none)
+    monkeypatch.setattr("app.services.llm.resolution.user.global_default_provider", returns_none)
 
     async with session_factory() as session:
         with pytest.raises(LLMProviderError) as error:

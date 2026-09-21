@@ -3,12 +3,12 @@ from __future__ import annotations
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.schemas.setting import SettingScope
-from app.services.llm.capability import (
+from app.services.llm.resolution.capability import (
     KNOWN_PROVIDER_IDS,
     ProviderCapability,
     provider_capabilities,
 )
-from app.services.llm.ollama import OLLAMA_PROVIDER_NAME
+from app.services.llm.providers.ollama import OLLAMA_PROVIDER_NAME
 from app.services.settings import get_value
 
 DEFAULT_ALLOWED_PROVIDERS: tuple[str, ...] = (OLLAMA_PROVIDER_NAME,)

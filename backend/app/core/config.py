@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     ollama_base_url: str
     ollama_default_model: str
     llm_default_provider: str
+    encryption_key: str
+    external_api_enabled: bool
 
     redis_url: str
     cors_origins: str

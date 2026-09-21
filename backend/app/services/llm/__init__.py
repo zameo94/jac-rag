@@ -5,7 +5,7 @@ from app.services.llm.base import (
     LLMResponse,
     LLMRole,
 )
-from app.services.llm.capability import (
+from app.services.llm.resolution.capability import (
     EXTERNAL_API_PROVIDER_NAME,
     KNOWN_PROVIDER_IDS,
     ProviderCapability,
@@ -15,7 +15,7 @@ from app.services.llm.capability import (
     known_provider_ids,
     provider_capabilities,
 )
-from app.services.llm.ollama import OLLAMA_PROVIDER_NAME, OllamaProvider
+from app.services.llm.providers.ollama import OLLAMA_PROVIDER_NAME, OllamaProvider
 
 __all__ = [
     "EXTERNAL_API_PROVIDER_NAME",
