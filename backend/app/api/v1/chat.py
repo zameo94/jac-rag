@@ -10,9 +10,9 @@ from app.database import get_session
 from app.models import Membership, Tenant, User
 from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
 from app.services.llm.base import LLMProviderError
-from app.services.llm.factory import create_provider, resolve_model
-from app.services.llm.tenant import tenant_model_override
-from app.services.llm.user import resolve_user_provider
+from app.services.llm.factory import build_provider
+from app.services.llm.resolution.tenant import tenant_model_override
+from app.services.llm.resolution.user import resolve_user_provider
 from app.services.rag import vector_store
 from app.services.rag.chat import generate_reply
 from app.services.rag.retrieve import has_context, retrieve_chunks
@@ -23,6 +23,7 @@ PROVIDER_ERROR_STATUS = {
     "PROVIDER_NOT_AVAILABLE": status.HTTP_403_FORBIDDEN,
     "PROVIDER_NOT_SELECTED": status.HTTP_409_CONFLICT,
     "NO_PROVIDER_AVAILABLE": status.HTTP_409_CONFLICT,
+    "PROVIDER_NOT_CONFIGURED": status.HTTP_409_CONFLICT,
     "PROVIDER_NOT_IMPLEMENTED": status.HTTP_501_NOT_IMPLEMENTED,
     "LLM_UNAVAILABLE": status.HTTP_503_SERVICE_UNAVAILABLE,
     "LLM_HTTP_ERROR": status.HTTP_502_BAD_GATEWAY,
@@ -62,8 +63,9 @@ async def chat(
     try:
         capability = await resolve_user_provider(session, tenant_id, current_user.id)
         model_override = await tenant_model_override(session, tenant_id)
-        model = resolve_model(capability.id, model_override)
-        provider = create_provider(capability.id, model=model_override)
+        provider, model = await build_provider(
+            session, tenant_id, capability.id, model_override
+        )
     except LLMProviderError as exc:
         raise provider_error(exc)
 

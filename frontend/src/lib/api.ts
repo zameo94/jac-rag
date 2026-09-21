@@ -2,9 +2,13 @@ import { ApiError } from "./api-error";
 import type {
   Document,
   InvitationCreated,
+  LLMConfig,
+  LLMSettings,
+  LLMSettingsUpdate,
   Member,
   Membership,
   MembershipRole,
+  ProviderSelection,
   Tenant,
   User,
 } from "./types";
@@ -142,6 +146,23 @@ export const api = {
     },
     remove(tenantId: number, documentId: number): Promise<void> {
       return request(`/tenants/${tenantId}/documents/${documentId}`, { method: "DELETE" });
+    },
+  },
+  llm: {
+    config(tenantId: number): Promise<LLMConfig> {
+      return request(`/tenants/${tenantId}/llm/config`);
+    },
+    settings(tenantId: number): Promise<LLMSettings> {
+      return request(`/tenants/${tenantId}/llm/settings`);
+    },
+    updateSettings(tenantId: number, body: LLMSettingsUpdate): Promise<LLMSettings> {
+      return request(`/tenants/${tenantId}/llm/settings`, { method: "PUT", body });
+    },
+    selectProvider(tenantId: number, providerId: string): Promise<ProviderSelection> {
+      return request(`/tenants/${tenantId}/llm/provider`, {
+        method: "PUT",
+        body: { provider_id: providerId },
+      });
     },
   },
 };

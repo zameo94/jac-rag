@@ -3,7 +3,7 @@ import pytest
 from app.models import Setting, Tenant
 from app.schemas.setting import SettingScope
 from app.services.llm import EXTERNAL_API_PROVIDER_NAME, OLLAMA_PROVIDER_NAME
-from app.services.llm.tenant import (
+from app.services.llm.resolution.tenant import (
     ALLOWED_PROVIDERS_KEY,
     DEFAULT_ALLOWED_PROVIDERS,
     DEFAULT_PROVIDER_KEY,

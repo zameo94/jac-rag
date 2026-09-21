@@ -45,6 +45,11 @@
     "EMPTY_FILE": "Il file caricato è vuoto.",
     "FILE_TOO_LARGE": "Il file supera la dimensione massima consentita.",
     "DOCUMENT_NOT_FOUND": "Documento non trovato.",
+    "PROVIDER_NOT_AVAILABLE": "Il provider selezionato non è disponibile per questo workspace.",
+    "PROVIDER_NOT_CONFIGURED": "Il provider esterno non è configurato per questo workspace.",
+    "NO_PROVIDER_AVAILABLE": "Nessun provider LLM è disponibile.",
+    "UNKNOWN_PROVIDER": "Provider sconosciuto.",
+    "INCOMPLETE_EXTERNAL_CONFIG": "Per il provider esterno servono base URL, modello e API key.",
     "HTTP_ERROR": "Errore imprevisto dal server."
   },
   "auth": {
@@ -118,11 +123,24 @@
   },
   "settings": {
     "title": "Impostazioni LLM",
+    "usedProvider": "Provider usato nelle risposte",
+    "noProviders": "Nessun provider disponibile.",
+    "allowedProviders": "Provider consentiti",
+    "externalSection": "Provider esterno (API compatibile OpenAI)",
+    "externalConfigured": "Configurato",
+    "externalNotConfigured": "Non configurato",
     "provider": "Provider",
     "model": "Modello",
     "baseUrl": "Base URL",
     "apiKey": "API key",
-    "comingSoon": "Presto disponibile"
+    "apiKeyHint": "La chiave non viene mai mostrata; lascia vuoto per non modificarla.",
+    "editKey": "Modifica chiave",
+    "save": "Salva",
+    "saving": "Salvataggio...",
+    "providers": {
+      "ollama": "Ollama (locale)",
+      "external_api": "API esterna"
+    }
   },
   "playground": {
     "title": "Playground chat",

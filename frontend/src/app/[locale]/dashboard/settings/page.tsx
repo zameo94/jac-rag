@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
+import { LlmSettingsPanel } from "@/features/llm/LlmSettingsPanel";
 import { useTenant } from "@/features/tenants/TenantProvider";
 
 export default function SettingsPage() {
@@ -22,7 +23,7 @@ export default function SettingsPage() {
             : tenantsT("assistive")}
         </p>
       </div>
-      <p className="text-sm text-slate-500">{t("comingSoon")}</p>
+      <LlmSettingsPanel />
     </section>
   );
 }

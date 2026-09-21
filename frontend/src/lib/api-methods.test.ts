@@ -111,6 +111,46 @@ describe("documents api", () => {
   });
 });
 
+describe("llm api", () => {
+  it("fetches the llm config", async () => {
+    const fetchMock = mockFetch(200, {
+      providers: [],
+      allowed_providers: [],
+      selected_provider: null,
+      default_provider: "ollama",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.llm.config(2);
+
+    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/2/llm/config");
+  });
+
+  it("updates llm settings with PUT", async () => {
+    const fetchMock = mockFetch(200, { allowed_providers: ["ollama"] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.llm.updateSettings(2, { allowed_providers: ["ollama"] });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/2/llm/settings");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ allowed_providers: ["ollama"] });
+  });
+
+  it("selects a provider with PUT", async () => {
+    const fetchMock = mockFetch(200, { selected_provider: "external_api" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.llm.selectProvider(2, "external_api");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/2/llm/provider");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body)).toEqual({ provider_id: "external_api" });
+  });
+});
+
 describe("auth api", () => {
   it("refreshes the session without a body", async () => {
     const fetchMock = mockFetch(200, { id: 1 });
