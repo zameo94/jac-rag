@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,6 +47,12 @@ class Settings(BaseSettings):
     retrieval_top_k: int
     hybrid_enabled: bool
     rrf_k: int
+    rerank_enabled: bool
+    rerank_model: str
+    rerank_candidates: int
+    rerank_batch_size: int
+    rerank_mode: Literal["warmup", "on_demand"]
+    chat_context_k: int
 
     ocr_enabled: bool
     ocr_dpi: int

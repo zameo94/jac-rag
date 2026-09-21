@@ -326,3 +326,9 @@ message -> fastembed -> search Qdrant top-k
 - PDF support uses the text layer, with optional Tesseract OCR (`OCR_ENABLED`) for
   scanned pages or labels baked into page images; scanned PDFs without OCR enabled
   fail with `no_text_layer`.
+- Reranker is an in-process cross-encoder (`fastembed`, `RERANK_MODEL`), no Ollama.
+  `RERANK_MODE` picks the memory strategy: `on_demand` loads it for the rerank and
+  releases it before the LLM call (low RAM, +1-2s/chat, needed next to a local LLM on
+  a   small Docker VM), `warmup` preloads at startup and keeps ~1.2 GB resident.
+  `RERANK_BATCH_SIZE` caps the cross-encoder batch; fastembed's default (64) spikes
+  several GB on long candidates, a low value (4) keeps the peak ~1.8 GB at similar speed.

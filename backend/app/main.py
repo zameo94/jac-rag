@@ -1,15 +1,41 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import auth, chat, documents, invitations, llm, members, tenants
 from app.core.config import APP_NAME, APP_VERSION, get_settings
 from app.core.errors import register_exception_handlers
+from app.services.rag import rerank
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+def preload_reranker() -> None:
+    if not get_settings().rerank_enabled:
+        return
+    if get_settings().rerank_mode != "warmup":
+        return
+    try:
+        rerank.get_reranker()
+        logger.info("reranker preloaded: %s", get_settings().rerank_model)
+    except Exception as exc:  # pragma: no cover - defensive at startup
+        logger.warning("reranker preload failed: %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    preload_reranker()
+    yield
+
 
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
+    lifespan=lifespan,
     openapi_url="/openapi.json" if settings.is_development else None,
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,

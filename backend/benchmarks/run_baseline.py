@@ -31,9 +31,11 @@ import hashlib
 from dataclasses import replace
 from pathlib import Path
 
+from app.core.config import get_settings
 from app.services.rag.parsers import EXTENSION_MIME, resolve_mime
 from benchmarks.retrieval.analysis import analyze, structure_checks
 from benchmarks.retrieval.index import QdrantRetrievalIndex
+from benchmarks.retrieval.rerank import RerankedIndex
 from benchmarks.retrieval.report import render_inventory, render_report
 from benchmarks.retrieval.runner import evaluate_async
 from benchmarks.retrieval.schema import (
@@ -172,7 +174,42 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="top-k used to decide pass/fail in the failure analysis",
     )
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="over-fetch candidates and reorder them with a cross-encoder reranker",
+    )
+    parser.add_argument(
+        "--rerank-candidates",
+        type=int,
+        default=30,
+        metavar="N",
+        help="candidate window passed to the reranker (with --rerank)",
+    )
+    parser.add_argument(
+        "--rerank-model",
+        type=str,
+        default=None,
+        metavar="MODEL",
+        help="fastembed cross-encoder model (default: RERANK_MODEL)",
+    )
     return parser
+
+
+def _rerank_summary(*, model: str, candidates: int, latencies: list[float]) -> str:
+    if latencies:
+        ordered = sorted(latencies)
+        average = sum(latencies) / len(latencies)
+        p50 = ordered[len(ordered) // 2]
+        p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
+    else:
+        average = p50 = p95 = 0.0
+    return (
+        "\nRerank\n"
+        f"  model: {model}\n"
+        f"  candidates: {candidates}\n"
+        f"  latency per query: avg={average:.3f}s p50={p50:.3f}s p95={p95:.3f}s"
+    )
 
 
 async def main() -> None:
@@ -182,6 +219,12 @@ async def main() -> None:
     max_k = max(args.max_k, max(k_values))
 
     index = await QdrantRetrievalIndex.build(dataset, retrieval_limit=max_k)
+    if args.rerank:
+        index = RerankedIndex(
+            index,
+            model=args.rerank_model or get_settings().rerank_model,
+            candidates=args.rerank_candidates,
+        )
     try:
         if not dataset.queries:
             text = render_inventory(
@@ -216,6 +259,13 @@ async def main() -> None:
             )
     finally:
         await index.close()
+
+    if args.rerank:
+        text += _rerank_summary(
+            model=args.rerank_model or get_settings().rerank_model,
+            candidates=args.rerank_candidates,
+            latencies=index.latencies,
+        )
 
     print(text)
     args.output_file.parent.mkdir(parents=True, exist_ok=True)
