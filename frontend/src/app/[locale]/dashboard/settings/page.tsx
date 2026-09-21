@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
+import { EmbedKeysPanel } from "@/features/embed-keys/EmbedKeysPanel";
 import { LlmSettingsPanel } from "@/features/llm/LlmSettingsPanel";
 import { useTenant } from "@/features/tenants/TenantProvider";
 
@@ -24,6 +25,7 @@ export default function SettingsPage() {
         </p>
       </div>
       <LlmSettingsPanel />
+      <EmbedKeysPanel />
     </section>
   );
 }

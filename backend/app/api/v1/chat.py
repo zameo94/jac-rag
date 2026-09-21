@@ -1,23 +1,28 @@
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from qdrant_client import AsyncQdrantClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.config import get_settings
-from app.core.deps import get_current_membership, get_current_user
+from app.core.deps import (
+    authenticate_user,
+    bearer_scheme,
+    get_current_membership,
+    get_current_user,
+    load_membership,
+)
 from app.core.errors import api_error
-from app.database import get_session
+from app.database import get_session, session_scope
 from app.models import Membership, Tenant, User
 from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
+from app.schemas.conversation import MessageRole
 from app.services.llm.base import LLMProviderError
-from app.services.llm.factory import build_provider
-from app.services.llm.resolution.tenant import tenant_model_override
-from app.services.llm.resolution.user import resolve_user_provider
 from app.services.rag import vector_store
-from app.services.rag.chat import generate_reply
-from app.services.rag.rerank import release_reranker, rerank_chunks
-from app.services.rag.retrieve import has_context, retrieve_chunks
+from app.services.rag.chat.conversations import add_message
+from app.services.rag.chat.execute import execute_reply, stream_events
+from app.services.rag.chat.prepare import chunk_sources, prepare_chat
 
 router = APIRouter()
 
@@ -63,57 +68,67 @@ async def chat(
         raise api_error(status.HTTP_404_NOT_FOUND, "TENANT_NOT_FOUND", "Tenant not found")
 
     try:
-        capability = await resolve_user_provider(session, tenant_id, current_user.id)
-        model_override = await tenant_model_override(session, tenant_id)
-        provider, model = await build_provider(
-            session, tenant_id, capability.id, model_override
+        prepared = await prepare_chat(
+            session,
+            client,
+            tenant=tenant,
+            message=payload.message,
+            conversation_id=payload.conversation_id,
+            user=current_user,
         )
     except LLMProviderError as exc:
         raise provider_error(exc)
 
-    settings = get_settings()
     try:
-        window = (
-            settings.rerank_candidates
-            if settings.rerank_enabled
-            else settings.retrieval_top_k
-        )
-        chunks = await retrieve_chunks(client, tenant_id, payload.message, top_k=window)
-        grounded = has_context(chunks)
-        if not grounded:
-            used = []
-        elif settings.rerank_enabled:
-            used = rerank_chunks(
-                payload.message, chunks, top_k=settings.chat_context_k
-            )
-        else:
-            used = chunks[: settings.chat_context_k]
-        if settings.rerank_enabled and settings.rerank_mode == "on_demand":
-            release_reranker()
-        answer_text, used_chunks = await generate_reply(
-            provider,
-            payload.message,
-            used,
-            answer_mode=tenant.answer_mode,
-            locale=current_user.locale or tenant.default_locale,
+        answer_text, used_chunks = await execute_reply(
+            session, prepared, payload.message
         )
     except LLMProviderError as exc:
         raise provider_error(exc)
     finally:
-        await provider.aclose()
+        await prepared.provider.aclose()
 
     return ChatResponse(
         answer=answer_text,
-        provider=capability.id,
-        model=model,
-        grounded=grounded,
-        sources=[
-            ChatSource(
-                document_id=chunk.document_id,
-                filename=chunk.filename,
-                chunk_index=chunk.chunk_index,
-                score=chunk.score,
+        provider=prepared.provider_id,
+        model=prepared.model,
+        grounded=prepared.grounded,
+        sources=[ChatSource(**source) for source in chunk_sources(used_chunks)],
+    )
+
+
+@router.post("/{tenant_id}/chat/stream")
+async def chat_stream(
+    tenant_id: int,
+    payload: ChatRequest,
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    client: AsyncQdrantClient = Depends(get_vector_client),
+) -> StreamingResponse:
+    async with session_scope() as session:
+        user = await authenticate_user(session, request, credentials)
+        await load_membership(session, user, tenant_id)
+        tenant = await session.get(Tenant, tenant_id)
+        try:
+            prepared = await prepare_chat(
+                session,
+                client,
+                tenant=tenant,
+                message=payload.message,
+                conversation_id=payload.conversation_id,
+                user=user,
             )
-            for chunk in used_chunks
-        ],
+            await add_message(
+                session,
+                prepared.conversation,
+                role=MessageRole.USER,
+                content=payload.message,
+            )
+        except LLMProviderError as exc:
+            raise provider_error(exc)
+
+    return StreamingResponse(
+        stream_events(prepared, payload.message),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

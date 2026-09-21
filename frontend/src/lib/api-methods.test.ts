@@ -151,6 +151,67 @@ describe("llm api", () => {
   });
 });
 
+describe("api keys api", () => {
+  it("creates an embed key", async () => {
+    const fetchMock = mockFetch(201, { id: 1, key: "jrk_x" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.apiKeys.create(3, "Widget");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/3/api-keys");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ name: "Widget" });
+  });
+
+  it("toggles a key with PATCH", async () => {
+    const fetchMock = mockFetch(200, { id: 1, is_active: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.apiKeys.setActive(3, 1, false);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/3/api-keys/1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ is_active: false });
+  });
+});
+
+describe("conversations api", () => {
+  it("lists tenant conversations", async () => {
+    const fetchMock = mockFetch(200, []);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.conversations.list(3);
+
+    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/3/conversations");
+  });
+
+  it("deletes a conversation", async () => {
+    const fetchMock = mockFetch(204, null);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.conversations.remove(3, 9);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/3/conversations/9");
+    expect(init.method).toBe("DELETE");
+  });
+});
+
+describe("chat api", () => {
+  it("sends a chat message as JSON", async () => {
+    const fetchMock = mockFetch(200, { answer: "ok" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.chat.send(3, "ciao", 5);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/3/chat");
+    expect(JSON.parse(init.body)).toEqual({ message: "ciao", conversation_id: 5 });
+  });
+});
+
 describe("auth api", () => {
   it("refreshes the session without a body", async () => {
     const fetchMock = mockFetch(200, { id: 1 });

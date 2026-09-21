@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from app.schemas.tenant import AnswerMode
 from app.services.llm.base import LLMMessage, LLMRole
 from app.services.rag.vector_store import RetrievedChunk
@@ -65,6 +67,7 @@ def build_messages(
     *,
     answer_mode: AnswerMode,
     locale: str | None,
+    history: Sequence[LLMMessage] = (),
 ) -> list[LLMMessage]:
     resolved = resolve_locale(locale)
     if chunks:
@@ -81,7 +84,7 @@ def build_messages(
     else:
         system = SYSTEM_ASSISTIVE[resolved]
         user_content = question
-    return [
-        LLMMessage(role=LLMRole.SYSTEM, content=system),
-        LLMMessage(role=LLMRole.USER, content=user_content),
-    ]
+    messages = [LLMMessage(role=LLMRole.SYSTEM, content=system)]
+    messages.extend(history)
+    messages.append(LLMMessage(role=LLMRole.USER, content=user_content))
+    return messages

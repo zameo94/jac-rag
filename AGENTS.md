@@ -30,14 +30,16 @@ backend/
     database.py            # async engine + AsyncSession dep
     core/
       config.py            # pydantic-settings
-      security.py          # password hash, JWT, embed keys
-      deps.py              # get_current_user, get_current_membership, require_role, get_embed_tenant
+      security.py          # password hash, JWT, embed keys, visitor tokens
+      cors.py              # CorsDispatcher (CMS credentialed vs widget key-only)
+      deps.py              # auth deps, require_role, get_embed_tenant, get_widget_visitor
       tkq.py               # taskiq broker/scheduler
     models/                # SQLModel table models (table=True)
     schemas/               # Pydantic/SQLModel schemas (Base/Create/Update/Read)
-    api/v1/                # routers, one per resource
+    api/v1/                # routers, one per resource (+ widget.py, conversations.py)
     services/
       crypto.py            # encrypt/decrypt tenant secrets
+      rate_limit.py        # Redis fixed-window limiter for widget keys
       llm/                 # base.py + factory.py; providers/ (ollama, openai)
                            # and resolution/ (capability, tenant, user, external)
       rag/
@@ -48,12 +50,14 @@ backend/
         chunker.py         # structure-aware chunker over the Document IR
         embeddings.py      # fastembed wrapper
         retrieve.py        # hybrid retrieval + relevance gate
-        chat/              # prompt.py + reply.py
-    tasks/                 # taskiq tasks (own AsyncSession)
+        rerank.py          # cross-encoder reranker (fastembed)
+        chat/              # prompt, reply, prepare (shared pipeline),
+                           # execute (JSON + SSE), conversations (history/persistence), events
+    tasks/                 # taskiq tasks (own AsyncSession): ingest, retention (purge)
   alembic/                 # async env.py
   tests/
 frontend/                  # CMS only (Next.js + TS)
-docker-compose.yml         # db, qdrant, redis, backend, worker, frontend (+ ollama)
+docker-compose.yml         # db, qdrant, redis, backend, worker, scheduler, frontend (+ ollama)
 ```
 
 ## Schemas vs Models (mirror of medicines_manager, adapted to async)
@@ -88,27 +92,30 @@ docker-compose.yml         # db, qdrant, redis, backend, worker, frontend (+ oll
 - Roles: `OWNER | ADMIN | MEMBER`. Exactly one `OWNER`, not removable.
 - Qdrant: **one collection per tenant** `tenant_{id}`. Strong isolation, clean deletion.
 
-## Data model (planned)
+## Data model
 
 ```
 users         (id, email UNIQUE, password_hash, locale, is_active, timestamps)
-tenants       (id, name, slug UNIQUE, default_locale, answer_mode,
-               embedding_model, embedding_dim, timestamps)
+tenants       (id, name, slug UNIQUE, default_locale, answer_mode, timestamps)
 memberships   (id, user_id, tenant_id, role, created_at)  UNIQUE(user_id, tenant_id)
 invitations   (id, tenant_id, email, role, token_hash, expires_at,
                accepted_at, created_by, created_at)
-api_keys      (id, tenant_id, name, key_hash, prefix, is_active,
-               created_at, last_used_at)                # embed keys
-llm_settings  (id, tenant_id UNIQUE, provider, model, base_url,
-               api_key_encrypted, updated_at)
+api_keys      (id, tenant_id, name, key_hash UNIQUE, prefix, is_active,
+               created_by, created_at, last_used_at)     # embed keys
 documents     (id, tenant_id, uploader_id, filename, storage_path, mime,
                size, language, status, error, timestamps)
-conversations (id, tenant_id, user_id, end_user_id, title, created_at)
-messages      (id, conversation_id, role, content, sources JSON, created_at)
+conversations (id, tenant_id, user_id NULL, end_user_id NULL, title,
+               timestamps)  CHECK one actor, indexes (tenant_id, end_user_id|user_id)
+messages      (id, conversation_id, role, content, sources JSON, provider,
+               model, grounded, error_code, created_at)
+settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
+               value JSON, timestamps)                  # generic (LLM etc.)
 ```
 
 - Document status: `pending | processing | ready | failed`.
 - `answer_mode`: `strict` (default) | `assistive`.
+- Conversations have **exactly one actor**: `user_id` (CMS member) or `end_user_id`
+  (anonymous widget visitor), enforced by a CHECK constraint.
 
 ## Auth
 
@@ -118,10 +125,41 @@ messages      (id, conversation_id, role, content, sources JSON, created_at)
   `create tenant` (creator becomes `OWNER`) or `accept invitation`.
 - Invitations: admin generates a token, shared out-of-band; store only `token_hash`
   with expiry and `accepted_at` (one-shot).
-- Widget: authenticates with a tenant **embed key** (hashed), scoped to a tenant, managed
-  from the CMS. CORS handled for embedded origins.
+- **Widget embed key**: the CMS (OWNER/ADMIN) creates a key, shown **once**; only its
+  sha256 is stored (`prefix`/`last_used_at` for the UI, `is_active` to revoke). It is a
+  *publishable* key (it lives in the customer's page, like a Google Maps/Stripe
+  publishable key), so it grants only: open a chat and mint a visitor session. Requests
+  carry it in `X-Embed-Key`.
+- **Visitor token**: `POST /api/v1/widget/session` (key-authed) mints an opaque signed
+  JWT (`type=visitor`, random `sub`, bound to the tenant, `VISITOR_TOKEN_EXPIRE_DAYS`).
+  The widget stores it and sends `X-Visitor-Token`; conversations are tied to its
+  `subject`, so a client can never assert another visitor's identity. Stateless (no DB
+  row per visitor).
 - Tenant secrets (LLM API keys) are **encrypted at rest** and **never returned** by the
   API (masked only). Only `OWNER`/`ADMIN` may manage them.
+
+## Widget API & streaming
+
+- Widget endpoints live under `/api/v1/widget/*` and authenticate with
+  `X-Embed-Key` (+ `X-Visitor-Token` where a visitor is required):
+  `POST /session`, `GET /config`, `POST /chat`, `POST /chat/stream`,
+  `GET /conversations`, `GET /conversations/{id}` (own only, read-only).
+- Auth headers: any origin, **no cookies** → `CorsDispatcher` (`app/core/cors.py`) gives
+  the widget namespace `Access-Control-Allow-Origin: *` (no credentials) with allowed
+  headers `Content-Type`, `X-Embed-Key`, `X-Visitor-Token`; the CMS keeps the
+  credentialed, origin-restricted policy.
+- **Rate limit**: Redis fixed window per embed key (`WIDGET_RATE_LIMIT_PER_MINUTE`,
+  `app/services/rate_limit.py`); `0` disables.
+- **SSE contract** (`POST .../chat/stream`, CMS and widget): `sources` (once, with
+  `grounded` + `sources`), then `token`* (`{"text": ...}`), then `done`
+  (`{"provider", "model", "grounded"}`); provider failures after the first byte emit
+  `error` (`{"code", "message"}`). Pre-stream errors stay normal JSON. Deterministic
+  refusal (strict, no context) emits `sources` empty → one `token` → `done` without
+  calling the provider. Consume with `fetch` + `ReadableStream` (not `EventSource`,
+  which cannot POST or send headers).
+- **Streaming route resources**: auth + retrieval run in a `session_scope()` unit of
+  work closed *before* the stream starts; the provider is closed in the generator's
+  `finally`, never by the route.
 
 ## i18n (IT + EN now)
 
@@ -218,8 +256,9 @@ message -> fastembed -> search Qdrant top-k
 ## Frontend scope (CMS only, TypeScript)
 
 - Auth (`/register`, `/login`), onboarding (create tenant / accept invite).
-- Tenant management, members, invitations, embed keys.
-- Document upload + status, LLM settings, optional chat playground.
+- Tenant management, members, invitations, embed keys (`features/embed-keys`).
+- Document upload + status, LLM settings, chat playground (`features/chat`, streaming via
+  `lib/chat-stream.ts`), conversations viewer for ADMIN/OWNER (`features/conversations`).
 - Module division mirrors medicines_manager: `features/<domain>/{components,hooks,services}`,
   `pages`/route groups, typed `lib/api.ts`. Next.js App Router instead of React Router.
 - The embeddable widget is a **separate repo**; the CMS only manages its keys/config.
@@ -251,6 +290,7 @@ message -> fastembed -> search Qdrant top-k
 | New migration | `backend/` | `alembic revision --autogenerate -m "..."` |
 | Apply migrations | `backend/` | `alembic upgrade head` |
 | Worker | `backend/` | `taskiq worker app.core.tkq:broker --fs-discover` |
+| Scheduler | `backend/` | `taskiq scheduler app.core.tkq:scheduler` |
 | Frontend dev | `frontend/` | `npm run dev` |
 | Frontend tests | `frontend/` | `npm test` |
 | Frontend typecheck | `frontend/` | `npm run typecheck` |
@@ -262,15 +302,17 @@ message -> fastembed -> search Qdrant top-k
 - First run: `cp .env.example .env` — Compose has **no fallback defaults**, so it fails
   without a complete `.env`.
 - Full stack: `docker compose up -d --build` starts `db`, `qdrant`, `redis`, `backend`,
-  `worker`, `frontend`. Backend applies migrations via `start.sh` before serving.
+  `worker`, `scheduler`, `frontend`. Backend applies migrations via `start.sh` before serving.
 - Infra only (for running uvicorn/taskiq/next on the host): `docker compose up -d db qdrant redis`
   — PostgreSQL 16 (`localhost:5432`, `user`/`password`, db `jac_rag`),
   Qdrant (`localhost:6333`), Redis (`localhost:6379`).
-- No `scheduler` service: ingestion is on-demand (`ingest_document.kiq`), not cron-based.
-  Add one only if a periodic job is introduced.
+- `worker` runs `taskiq worker app.core.tkq:broker --fs-discover`; `scheduler` runs
+  `taskiq scheduler app.core.tkq:scheduler`. Ingestion is on-demand (`ingest_document.kiq`);
+  the scheduler only drives the periodic retention purge (`purge_conversations`, daily cron,
+  `CHAT_RETENTION_DAYS`).
 - Volumes: `storage_data` (uploads), `fastembed_cache` (embedding model), plus db/qdrant/redis.
-- The worker runs `taskiq worker app.core.tkq:broker --fs-discover`.
-- CORS: the backend allows the origins listed in `CORS_ORIGINS` (required).
+- CORS: `CorsDispatcher` — the CMS allows `CORS_ORIGINS` with credentials; the widget
+  namespace (`/api/v1/widget/*`) allows any origin without credentials.
 
 ## Configuration & secrets
 

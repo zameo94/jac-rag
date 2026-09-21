@@ -57,6 +57,9 @@ services:
     restart: always
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:?}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:?}
+      - DB_POOL_TIMEOUT=${DB_POOL_TIMEOUT:?}
       - QDRANT_URL=http://qdrant:6333
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_DIR=/data/storage
@@ -67,6 +70,7 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:?}
       - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:?}
       - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
+      - VISITOR_TOKEN_EXPIRE_DAYS=${VISITOR_TOKEN_EXPIRE_DAYS:?}
       - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
       - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
       - COOKIE_SECURE=${COOKIE_SECURE:?set COOKIE_SECURE in .env}
@@ -93,6 +97,9 @@ services:
       - RERANK_BATCH_SIZE=${RERANK_BATCH_SIZE:?}
       - RERANK_MODE=${RERANK_MODE:?}
       - CHAT_CONTEXT_K=${CHAT_CONTEXT_K:?}
+      - CHAT_HISTORY_LIMIT=${CHAT_HISTORY_LIMIT:?}
+      - CHAT_RETENTION_DAYS=${CHAT_RETENTION_DAYS:?}
+      - WIDGET_RATE_LIMIT_PER_MINUTE=${WIDGET_RATE_LIMIT_PER_MINUTE:?}
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
@@ -128,6 +135,9 @@ services:
     command: taskiq worker app.core.tkq:broker --fs-discover
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:?}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:?}
+      - DB_POOL_TIMEOUT=${DB_POOL_TIMEOUT:?}
       - QDRANT_URL=http://qdrant:6333
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_DIR=/data/storage
@@ -138,6 +148,7 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:?}
       - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:?}
       - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
+      - VISITOR_TOKEN_EXPIRE_DAYS=${VISITOR_TOKEN_EXPIRE_DAYS:?}
       - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
       - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
       - COOKIE_SECURE=${COOKIE_SECURE:?set COOKIE_SECURE in .env}
@@ -164,6 +175,9 @@ services:
       - RERANK_BATCH_SIZE=${RERANK_BATCH_SIZE:?}
       - RERANK_MODE=${RERANK_MODE:?}
       - CHAT_CONTEXT_K=${CHAT_CONTEXT_K:?}
+      - CHAT_HISTORY_LIMIT=${CHAT_HISTORY_LIMIT:?}
+      - CHAT_RETENTION_DAYS=${CHAT_RETENTION_DAYS:?}
+      - WIDGET_RATE_LIMIT_PER_MINUTE=${WIDGET_RATE_LIMIT_PER_MINUTE:?}
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
       - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
@@ -179,6 +193,73 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  scheduler:
+    build: ./backend
+    container_name: jac_rag_scheduler
+    restart: always
+    command: taskiq scheduler app.core.tkq:scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:?}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:?}
+      - DB_POOL_TIMEOUT=${DB_POOL_TIMEOUT:?}
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_DIR=/data/storage
+      - FASTEMBED_CACHE_PATH=/data/fastembed
+      - ENVIRONMENT=${ENVIRONMENT:?set ENVIRONMENT in .env}
+      - SQL_ECHO=${SQL_ECHO:?set SQL_ECHO in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:?}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:?}
+      - INVITATION_EXPIRE_DAYS=${INVITATION_EXPIRE_DAYS:?}
+      - VISITOR_TOKEN_EXPIRE_DAYS=${VISITOR_TOKEN_EXPIRE_DAYS:?}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:?}
+      - CORS_ORIGINS=${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      - COOKIE_SECURE=${COOKIE_SECURE:?set COOKIE_SECURE in .env}
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:?set COOKIE_SAMESITE in .env}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:?}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:?}
+      - CHUNK_SIZE=${CHUNK_SIZE:?}
+      - CHUNK_MAX_SIZE=${CHUNK_MAX_SIZE:?}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:?}
+      - CHUNK_TABLE_CONTEXT=${CHUNK_TABLE_CONTEXT:?}
+      - CHUNK_SECTION_CONTEXT=${CHUNK_SECTION_CONTEXT:?}
+      - CHUNK_INCLUDE_METADATA=${CHUNK_INCLUDE_METADATA:?}
+      - DROP_REPEATED_LAYOUT=${DROP_REPEATED_LAYOUT:?}
+      - PARSER_DEBUG=${PARSER_DEBUG:?}
+      - MIN_CHARS_PER_PAGE=${MIN_CHARS_PER_PAGE:?}
+      - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:?}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:?}
+      - HYBRID_ENABLED=${HYBRID_ENABLED:?}
+      - RRF_K=${RRF_K:?}
+      - RERANK_ENABLED=${RERANK_ENABLED:?}
+      - RERANK_MODEL=${RERANK_MODEL:?}
+      - RERANK_CANDIDATES=${RERANK_CANDIDATES:?}
+      - RERANK_BATCH_SIZE=${RERANK_BATCH_SIZE:?}
+      - RERANK_MODE=${RERANK_MODE:?}
+      - CHAT_CONTEXT_K=${CHAT_CONTEXT_K:?}
+      - CHAT_HISTORY_LIMIT=${CHAT_HISTORY_LIMIT:?}
+      - CHAT_RETENTION_DAYS=${CHAT_RETENTION_DAYS:?}
+      - WIDGET_RATE_LIMIT_PER_MINUTE=${WIDGET_RATE_LIMIT_PER_MINUTE:?}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:?}
+      - LLM_DEFAULT_PROVIDER=${LLM_DEFAULT_PROVIDER:?}
+      - EXTERNAL_API_ENABLED=${EXTERNAL_API_ENABLED:?}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?}
+      - OCR_ENABLED=${OCR_ENABLED:?}
+      - OCR_DPI=${OCR_DPI:?}
+      - OCR_MIN_CONFIDENCE=${OCR_MIN_CONFIDENCE:?}
+      - OCR_IMAGE_DOMINANCE_RATIO=${OCR_IMAGE_DOMINANCE_RATIO:?}
+    depends_on:
       db:
         condition: service_healthy
       redis:

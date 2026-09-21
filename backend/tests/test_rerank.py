@@ -201,10 +201,9 @@ async def test_chat_uses_reranked_context(client, qdrant, monkeypatch):
     async def build(session, tenant_id, provider_id, model=None):
         return fake, "llama3.2"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
-        chat_module,
-        "rerank_chunks",
+        "app.services.rag.chat.prepare.rerank_chunks",
         lambda query, chunks, *, top_k: chunks[:1],
     )
 
@@ -232,13 +231,15 @@ async def test_chat_releases_reranker_before_generation(client, qdrant, monkeypa
     async def build(session, tenant_id, provider_id, model=None):
         return OrderedProvider(order), "llama3.2"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
-        chat_module,
-        "rerank_chunks",
+        "app.services.rag.chat.prepare.rerank_chunks",
         lambda query, chunks, *, top_k: order.append("rerank") or chunks[:1],
     )
-    monkeypatch.setattr(chat_module, "release_reranker", lambda: order.append("release"))
+    monkeypatch.setattr(
+        "app.services.rag.chat.prepare.release_reranker",
+        lambda: order.append("release"),
+    )
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -263,13 +264,15 @@ async def test_chat_keeps_reranker_when_warmup(client, qdrant, monkeypatch):
     async def build(session, tenant_id, provider_id, model=None):
         return OrderedProvider(order), "llama3.2"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
-        chat_module,
-        "rerank_chunks",
+        "app.services.rag.chat.prepare.rerank_chunks",
         lambda query, chunks, *, top_k: order.append("rerank") or chunks[:1],
     )
-    monkeypatch.setattr(chat_module, "release_reranker", lambda: order.append("release"))
+    monkeypatch.setattr(
+        "app.services.rag.chat.prepare.release_reranker",
+        lambda: order.append("release"),
+    )
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -294,7 +297,7 @@ async def test_chat_context_is_capped_by_chat_context_k(client, qdrant, monkeypa
     async def build(session, tenant_id, provider_id, model=None):
         return fake, "llama3.2"
 
-    monkeypatch.setattr(chat_module, "build_provider", build)
+    monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",

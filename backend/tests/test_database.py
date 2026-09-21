@@ -34,6 +34,31 @@ async def test_session_can_execute_a_query(sqlite_engine):
     assert users == []
 
 
+async def test_create_engine_accepts_pool_options_for_sqlite():
+    engine = create_engine(
+        "sqlite+aiosqlite:///:memory:",
+        pool_size=20,
+        max_overflow=5,
+        pool_timeout=10,
+    )
+
+    assert isinstance(engine, AsyncEngine)
+    await engine.dispose()
+
+
+async def test_session_scope_yields_usable_session(sqlite_engine, monkeypatch):
+    await create_tables(sqlite_engine)
+    monkeypatch.setattr(
+        database,
+        "async_session_factory",
+        create_session_factory(sqlite_engine),
+    )
+
+    async with database.session_scope() as session:
+        assert isinstance(session, SQLModelAsyncSession)
+        assert (await session.exec(select(User))).all() == []
+
+
 async def test_get_session_yields_usable_session(sqlite_engine, monkeypatch):
     await create_tables(sqlite_engine)
     monkeypatch.setattr(

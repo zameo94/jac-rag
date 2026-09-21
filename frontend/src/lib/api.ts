@@ -1,5 +1,10 @@
 import { ApiError } from "./api-error";
 import type {
+  ApiKey,
+  ApiKeyCreated,
+  ChatResponse,
+  Conversation,
+  ConversationDetail,
   Document,
   InvitationCreated,
   LLMConfig,
@@ -162,6 +167,45 @@ export const api = {
       return request(`/tenants/${tenantId}/llm/provider`, {
         method: "PUT",
         body: { provider_id: providerId },
+      });
+    },
+  },
+  apiKeys: {
+    list(tenantId: number): Promise<ApiKey[]> {
+      return request(`/tenants/${tenantId}/api-keys`);
+    },
+    create(tenantId: number, name: string): Promise<ApiKeyCreated> {
+      return request(`/tenants/${tenantId}/api-keys`, { method: "POST", body: { name } });
+    },
+    setActive(tenantId: number, keyId: number, isActive: boolean): Promise<ApiKey> {
+      return request(`/tenants/${tenantId}/api-keys/${keyId}`, {
+        method: "PATCH",
+        body: { is_active: isActive },
+      });
+    },
+  },
+  chat: {
+    send(
+      tenantId: number,
+      message: string,
+      conversationId?: number | null,
+    ): Promise<ChatResponse> {
+      return request(`/tenants/${tenantId}/chat`, {
+        method: "POST",
+        body: { message, conversation_id: conversationId ?? null },
+      });
+    },
+  },
+  conversations: {
+    list(tenantId: number): Promise<Conversation[]> {
+      return request(`/tenants/${tenantId}/conversations`);
+    },
+    get(tenantId: number, conversationId: number): Promise<ConversationDetail> {
+      return request(`/tenants/${tenantId}/conversations/${conversationId}`);
+    },
+    remove(tenantId: number, conversationId: number): Promise<void> {
+      return request(`/tenants/${tenantId}/conversations/${conversationId}`, {
+        method: "DELETE",
       });
     },
   },
