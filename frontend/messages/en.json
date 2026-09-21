@@ -142,10 +142,37 @@
       "external_api": "External API"
     }
   },
+  "embedKeys": {
+    "title": "Embed keys",
+    "name": "Name",
+    "create": "Create key",
+    "created": "Key created",
+    "createdHint": "Copy this key: it will not be shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "empty": "No keys.",
+    "active": "Active",
+    "inactive": "Revoked",
+    "revoke": "Revoke",
+    "restore": "Restore",
+    "prefix": "Prefix",
+    "lastUsed": "Last used",
+    "never": "Never"
+  },
+  "conversations": {
+    "title": "Conversations",
+    "empty": "No conversations.",
+    "visitor": "Visitor",
+    "user": "User",
+    "select": "Select a conversation."
+  },
   "playground": {
     "title": "Chat playground",
     "placeholder": "Ask a question about your documents...",
     "send": "Send",
+    "sending": "Sending...",
+    "empty": "Send a message to start.",
+    "sources": "Sources",
     "comingSoon": "Coming soon"
   },
   "nav": {
@@ -154,7 +181,8 @@
     "documents": "Documents",
     "members": "Members",
     "settings": "Settings",
-    "playground": "Playground"
+    "playground": "Playground",
+    "conversations": "Conversations"
   },
   "breadcrumbs": {
     "label": "Breadcrumb"

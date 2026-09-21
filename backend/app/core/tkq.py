@@ -16,4 +16,4 @@ scheduler = TaskiqScheduler(
     ],
 )
 
-from app.tasks import ingest  # noqa: E402,F401
+from app.tasks import ingest, retention  # noqa: E402,F401

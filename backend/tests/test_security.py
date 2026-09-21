@@ -99,3 +99,43 @@ def test_decode_token_rejects_non_numeric_subject():
 
     with pytest.raises(security.TokenError):
         security.decode_token(token, security.ACCESS_TOKEN_TYPE)
+
+
+def test_visitor_token_round_trip():
+    identity = security.decode_visitor_token(security.create_visitor_token(5))
+
+    assert identity.tenant_id == 5
+    assert identity.subject
+
+
+def test_visitor_tokens_are_unique():
+    assert security.create_visitor_token(1) != security.create_visitor_token(1)
+
+
+def test_decode_visitor_token_rejects_access_token():
+    with pytest.raises(security.TokenError):
+        security.decode_visitor_token(security.create_access_token(1))
+
+
+def test_decode_visitor_token_rejects_expired_token():
+    token = security.create_visitor_token(1, expires_delta=timedelta(seconds=-1))
+
+    with pytest.raises(security.TokenError):
+        security.decode_visitor_token(token)
+
+
+def test_decode_visitor_token_rejects_missing_tenant():
+    settings = get_settings()
+    token = jwt.encode(
+        {"sub": "abc", "type": security.VISITOR_TOKEN_TYPE},
+        settings.jwt_secret,
+        algorithm=security.JWT_ALGORITHM,
+    )
+
+    with pytest.raises(security.TokenError):
+        security.decode_visitor_token(token)
+
+
+def test_decode_visitor_token_rejects_garbage():
+    with pytest.raises(security.TokenError):
+        security.decode_visitor_token("not-a-token")
