@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import re
+
 from app.schemas.tenant import AnswerMode
 from app.services.llm.base import LLMMessage, LLMProvider, LLMRole
 from app.services.rag.vector_store import RetrievedChunk
 
 SUPPORTED_LOCALES = ("it", "en")
 FALLBACK_LOCALE = "it"
+
+CITATION_RE = re.compile(r"\[(\d+)\]")
 
 REFUSALS = {
     "it": "Non ho trovato questa informazione nei documenti disponibili.",
@@ -87,6 +91,18 @@ def build_messages(
     ]
 
 
+def expand_citations(answer: str, chunks: list[RetrievedChunk]) -> str:
+    """Replace ``[n]`` citations with ``[n: filename]`` (code, not the LLM)."""
+
+    def replace(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if 1 <= index <= len(chunks):
+            return f"[{index}: {chunks[index - 1].filename}]"
+        return match.group(0)
+
+    return CITATION_RE.sub(replace, answer)
+
+
 async def generate_reply(
     provider: LLMProvider,
     question: str,
@@ -105,4 +121,4 @@ async def generate_reply(
     response = await provider.generate(
         build_messages(question, chunks, answer_mode=answer_mode, locale=locale)
     )
-    return response.content, list(chunks)
+    return expand_citations(response.content, chunks), list(chunks)

@@ -2,6 +2,7 @@ import pytest
 
 from app.services.rag.ir import (
     Document,
+    FieldBlock,
     Heading,
     ListBlock,
     Paragraph,
@@ -347,3 +348,23 @@ def test_parse_pdf_links_column_header_to_value():
 
     assert "NETTO IN BUSTA: 1.821,00" in document.text
     assert "LORDO: 2.500,00" in document.text
+
+
+def test_parse_pdf_emits_fields_block():
+    pdf = make_positioned_pdf(
+        [
+            (72, 740, "LORDO"),
+            (300, 740, "NETTO IN BUSTA"),
+            (72, 700, "2.500,00"),
+            (300, 700, "1.828,00"),
+        ]
+    )
+
+    document = parse_pdf(pdf)
+
+    field_blocks = [block for block in document.blocks if isinstance(block, FieldBlock)]
+    assert field_blocks, "expected a fields block"
+    pairs = [
+        (item.label, item.value) for block in field_blocks for item in block.fields
+    ]
+    assert ("NETTO IN BUSTA", "1.828,00") in pairs
