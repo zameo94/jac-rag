@@ -14,7 +14,7 @@ vi.mock("@/features/tenants/TenantProvider", () => ({
 }));
 
 const apiMock = vi.hoisted(() => ({
-  members: { list: vi.fn() },
+  members: { me: vi.fn() },
   apiKeys: { list: vi.fn(), create: vi.fn(), setActive: vi.fn() },
 }));
 
@@ -24,7 +24,7 @@ import { EmbedKeysPanel } from "@/features/embed-keys/EmbedKeysPanel";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMock.members.list.mockResolvedValue([{ user_id: 1, role: "OWNER" }]);
+  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "OWNER" });
   apiMock.apiKeys.list.mockResolvedValue([
     {
       id: 1,
@@ -58,11 +58,11 @@ describe("EmbedKeysPanel", () => {
   });
 
   it("is hidden for a member", async () => {
-    apiMock.members.list.mockResolvedValue([{ user_id: 1, role: "MEMBER" }]);
+    apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "MEMBER" });
 
     const { container } = render(<EmbedKeysPanel />);
 
-    await waitFor(() => expect(apiMock.members.list).toHaveBeenCalled());
+    await waitFor(() => expect(apiMock.members.me).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
   });
 });

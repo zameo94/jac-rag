@@ -118,6 +118,7 @@ export interface ChatSource {
 }
 
 export interface ChatResponse {
+  conversation_id: number;
   answer: string;
   provider: string;
   model: string;

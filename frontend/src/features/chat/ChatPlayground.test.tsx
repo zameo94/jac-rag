@@ -24,6 +24,7 @@ describe("ChatPlayground", () => {
   it("streams tokens into the assistant turn", async () => {
     streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
       handlers.onSources?.({
+        conversation_id: 7,
         grounded: true,
         sources: [{ document_id: 1, filename: "doc.md", chunk_index: 0, score: 0.9 }],
       });
@@ -44,6 +45,7 @@ describe("ChatPlayground", () => {
       1,
       "domanda",
       expect.objectContaining({ onToken: expect.any(Function) }),
+      null,
     );
   });
 
@@ -52,7 +54,7 @@ describe("ChatPlayground", () => {
       handlers.onError?.({ code: "LLM_UNAVAILABLE", message: "down" });
     });
 
-    render(<ChatPlayground />);
+    const { container } = render(<ChatPlayground />);
 
     fireEvent.change(screen.getByPlaceholderText("placeholder"), {
       target: { value: "domanda" },
@@ -60,5 +62,33 @@ describe("ChatPlayground", () => {
     fireEvent.click(screen.getByText("send"));
 
     await waitFor(() => expect(streamMock).toHaveBeenCalled());
+    expect(screen.getByText("domanda")).toBeInTheDocument();
+    expect(container.querySelectorAll(".bg-emerald-50")).toHaveLength(0);
+  });
+
+  it("reuses the conversation id on subsequent sends", async () => {
+    let calls = 0;
+    streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
+      calls += 1;
+      if (calls === 1) {
+        handlers.onSources?.({ conversation_id: 7, grounded: true, sources: [] });
+      }
+      handlers.onToken?.("ok");
+    });
+
+    render(<ChatPlayground />);
+    const input = screen.getByPlaceholderText("placeholder");
+
+    fireEvent.change(input, { target: { value: "primo" } });
+    fireEvent.click(screen.getByText("send"));
+    await waitFor(() => expect(streamMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(input, { target: { value: "secondo" } });
+    fireEvent.click(screen.getByText("send"));
+    await waitFor(() => expect(streamMock).toHaveBeenCalledTimes(2));
+
+    const [first, second] = streamMock.mock.calls;
+    expect(first[3]).toBeNull();
+    expect(second[3]).toBe(7);
   });
 });

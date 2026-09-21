@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useAuth } from "@/features/auth/AuthProvider";
 import { useTenant } from "@/features/tenants/TenantProvider";
 import { api } from "@/lib/api";
 import type { Conversation, ConversationDetail, MembershipRole } from "@/lib/types";
@@ -13,7 +12,6 @@ export function ConversationsPanel() {
   const t = useTranslations("conversations");
   const common = useTranslations("common");
   const { activeTenant } = useTenant();
-  const { user } = useAuth();
   const [items, setItems] = useState<Conversation[]>([]);
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [selected, setSelected] = useState<ConversationDetail | null>(null);
@@ -25,17 +23,16 @@ export function ConversationsPanel() {
   const load = useCallback(async () => {
     if (!tenantId) return;
     try {
-      const members = await api.members.list(tenantId);
-      const me = members.find((member) => member.user_id === user?.id);
-      setRole(me?.role ?? null);
-      if (me && (me.role === "OWNER" || me.role === "ADMIN")) {
+      const membership = await api.members.me(tenantId);
+      setRole(membership.role);
+      if (membership.role === "OWNER" || membership.role === "ADMIN") {
         setItems(await api.conversations.list(tenantId));
       }
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId, user?.id]);
+  }, [tenantId]);
 
   useEffect(() => {
     void load();

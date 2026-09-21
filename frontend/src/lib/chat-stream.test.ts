@@ -37,7 +37,7 @@ describe("streamChat", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         streamResponse([
-          'event: sources\ndata: {"grounded":true,"sources":[{"filename":"a.md"}]}\n\n',
+          'event: sources\ndata: {"conversation_id":7,"grounded":true,"sources":[{"filename":"a.md"}]}\n\n',
           'event: token\ndata: {"text":"Ciao"}\n\n',
           'event: token\ndata: {"text":" mondo"}\n\n',
           'event: done\ndata: {"provider":"ollama","model":"m","grounded":true}\n\n',
@@ -56,6 +56,7 @@ describe("streamChat", () => {
 
     expect(tokens.join("")).toBe("Ciao mondo");
     expect(onSources).toHaveBeenCalledWith({
+      conversation_id: 7,
       grounded: true,
       sources: [{ filename: "a.md" }],
     });

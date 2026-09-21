@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useAuth } from "@/features/auth/AuthProvider";
 import { useTenant } from "@/features/tenants/TenantProvider";
 import { api } from "@/lib/api";
 import type { ApiKey, MembershipRole } from "@/lib/types";
@@ -13,7 +12,6 @@ export function EmbedKeysPanel() {
   const t = useTranslations("embedKeys");
   const common = useTranslations("common");
   const { activeTenant } = useTenant();
-  const { user } = useAuth();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [name, setName] = useState("");
@@ -27,17 +25,16 @@ export function EmbedKeysPanel() {
   const load = useCallback(async () => {
     if (!tenantId) return;
     try {
-      const members = await api.members.list(tenantId);
-      const me = members.find((member) => member.user_id === user?.id);
-      setRole(me?.role ?? null);
-      if (me && (me.role === "OWNER" || me.role === "ADMIN")) {
+      const membership = await api.members.me(tenantId);
+      setRole(membership.role);
+      if (membership.role === "OWNER" || membership.role === "ADMIN") {
         setKeys(await api.apiKeys.list(tenantId));
       }
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId, user?.id]);
+  }, [tenantId]);
 
   useEffect(() => {
     void load();
@@ -70,8 +67,12 @@ export function EmbedKeysPanel() {
 
   async function copy() {
     if (!created) return;
-    await navigator.clipboard.writeText(created);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(created);
+      setCopied(true);
+    } catch {
+      setError({ code: "CLIPBOARD_UNAVAILABLE", message: "Clipboard not available" });
+    }
   }
 
   return (

@@ -89,6 +89,7 @@ async def chat(
         await prepared.provider.aclose()
 
     return ChatResponse(
+        conversation_id=prepared.conversation.id,
         answer=answer_text,
         provider=prepared.provider_id,
         model=prepared.model,

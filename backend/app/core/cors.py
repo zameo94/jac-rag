@@ -4,7 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 WIDGET_PATH_PREFIX = "/api/v1/widget"
 WIDGET_ALLOW_HEADERS = ["Content-Type", "X-Embed-Key", "X-Visitor-Token"]
-WIDGET_ALLOW_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+WIDGET_ALLOW_METHODS = ["GET", "POST"]
 
 
 def is_widget_path(path: str) -> bool:

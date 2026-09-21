@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.responses import StreamingResponse
 from qdrant_client import AsyncQdrantClient
 from sqlalchemy.orm import selectinload
@@ -52,6 +52,7 @@ async def create_widget_session(
 @router.get("/config", response_model=WidgetConfigRead)
 async def widget_config(
     tenant: Tenant = Depends(get_embed_tenant),
+    _: None = Depends(enforce_widget_rate_limit),
 ) -> WidgetConfigRead:
     return WidgetConfigRead(
         tenant_name=tenant.name,
@@ -91,6 +92,7 @@ async def widget_chat(
         await prepared.provider.aclose()
 
     return ChatResponse(
+        conversation_id=prepared.conversation.id,
         answer=answer_text,
         provider=prepared.provider_id,
         model=prepared.model,
@@ -142,8 +144,11 @@ async def widget_chat_stream(
 
 @router.get("/conversations", response_model=list[ConversationRead])
 async def list_widget_conversations(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     tenant: Tenant = Depends(get_embed_tenant),
     visitor: security.VisitorIdentity = Depends(get_widget_visitor),
+    _: None = Depends(enforce_widget_rate_limit),
     session: AsyncSession = Depends(get_session),
 ) -> list[Conversation]:
     statement = (
@@ -153,6 +158,8 @@ async def list_widget_conversations(
             Conversation.end_user_id == visitor.subject,
         )
         .order_by(Conversation.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     return list((await session.exec(statement)).all())
 
@@ -162,6 +169,7 @@ async def get_widget_conversation(
     conversation_id: int,
     tenant: Tenant = Depends(get_embed_tenant),
     visitor: security.VisitorIdentity = Depends(get_widget_visitor),
+    _: None = Depends(enforce_widget_rate_limit),
     session: AsyncSession = Depends(get_session),
 ) -> Conversation:
     statement = (

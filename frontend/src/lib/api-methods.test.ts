@@ -42,6 +42,21 @@ describe("tenants api", () => {
 });
 
 describe("members api", () => {
+  it("fetches the current membership", async () => {
+    const fetchMock = mockFetch(200, {
+      id: 3,
+      user_id: 1,
+      tenant_id: 2,
+      role: "ADMIN",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const membership = await api.members.me(2);
+
+    expect(membership.role).toBe("ADMIN");
+    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/2/me");
+  });
+
   it("updates a member role with PATCH", async () => {
     const fetchMock = mockFetch(200, { id: 1, role: "ADMIN" });
     vi.stubGlobal("fetch", fetchMock);

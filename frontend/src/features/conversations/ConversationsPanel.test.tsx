@@ -14,7 +14,7 @@ vi.mock("@/features/tenants/TenantProvider", () => ({
 }));
 
 const apiMock = vi.hoisted(() => ({
-  members: { list: vi.fn() },
+  members: { me: vi.fn() },
   conversations: { list: vi.fn(), get: vi.fn(), remove: vi.fn() },
 }));
 
@@ -24,7 +24,7 @@ import { ConversationsPanel } from "@/features/conversations/ConversationsPanel"
 
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMock.members.list.mockResolvedValue([{ user_id: 1, role: "ADMIN" }]);
+  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "ADMIN" });
   apiMock.conversations.list.mockResolvedValue([
     {
       id: 7,

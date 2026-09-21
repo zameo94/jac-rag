@@ -4,7 +4,11 @@ import type { ChatSource } from "./types";
 const API_BASE = "/api/v1";
 
 export interface ChatStreamHandlers {
-  onSources?: (payload: { grounded: boolean; sources: ChatSource[] }) => void;
+  onSources?: (payload: {
+    conversation_id: number;
+    grounded: boolean;
+    sources: ChatSource[];
+  }) => void;
   onToken?: (text: string) => void;
   onDone?: (payload: { provider: string; model: string; grounded: boolean }) => void;
   onError?: (payload: { code: string; message: string }) => void;
@@ -43,7 +47,13 @@ export function parseSseChunk(buffer: string): { events: ParsedEvent[]; rest: st
 
 function dispatch(event: ParsedEvent, handlers: ChatStreamHandlers): void {
   if (event.event === "sources") {
-    handlers.onSources?.(event.data as { grounded: boolean; sources: ChatSource[] });
+    handlers.onSources?.(
+      event.data as {
+        conversation_id: number;
+        grounded: boolean;
+        sources: ChatSource[];
+      },
+    );
   } else if (event.event === "token") {
     handlers.onToken?.(String(event.data.text ?? ""));
   } else if (event.event === "done") {

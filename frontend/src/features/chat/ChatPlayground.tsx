@@ -23,6 +23,7 @@ export function ChatPlayground() {
   const [error, setError] = useState<unknown>(null);
 
   const tenantId = activeTenant?.id ?? null;
+  const [conversationId, setConversationId] = useState<number | null>(null);
 
   function updateLast(update: (turn: Turn) => Turn) {
     setTurns((current) =>
@@ -30,9 +31,20 @@ export function ChatPlayground() {
     );
   }
 
+  function dropEmptyAssistant() {
+    setTurns((current) => {
+      const last = current[current.length - 1];
+      if (last && last.role === "assistant" && last.content === "") {
+        return current.slice(0, -1);
+      }
+      return current;
+    });
+  }
+
   async function send() {
     if (!tenantId || !message.trim() || sending) return;
     const question = message.trim();
+    const resumeConversationId = conversationId;
     setMessage("");
     setError(null);
     setSending(true);
@@ -44,14 +56,18 @@ export function ChatPlayground() {
 
     try {
       await streamChat(tenantId, question, {
-        onSources: (payload) => updateLast((turn) => ({ ...turn, sources: payload.sources })),
+        onSources: (payload) => {
+          if (payload.conversation_id) setConversationId(payload.conversation_id);
+          updateLast((turn) => ({ ...turn, sources: payload.sources }));
+        },
         onToken: (text) => updateLast((turn) => ({ ...turn, content: turn.content + text })),
         onError: (payload) => setError({ code: payload.code, message: payload.message }),
-      });
+      }, resumeConversationId);
     } catch (err) {
       setError(err);
     } finally {
       setSending(false);
+      dropEmptyAssistant();
     }
   }
 

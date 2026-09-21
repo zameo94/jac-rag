@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from fastapi import Depends, Header, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import security
-from app.core.datetimes import utcnow
+from app.core.datetimes import ensure_aware_utc, utcnow
 from app.core.errors import api_error
 from app.database import get_session
 from app.models import ApiKey, Membership, Tenant, User
@@ -14,6 +16,8 @@ from app.services.rate_limit import widget_allowed
 bearer_scheme = HTTPBearer(auto_error=False)
 
 ACCESS_COOKIE = "jacrag_access"
+
+LAST_USED_UPDATE_INTERVAL = timedelta(hours=1)
 
 
 def _extract_access_token(
@@ -163,9 +167,11 @@ async def resolve_embed_tenant(session: AsyncSession, embed_key: str | None) -> 
             "Tenant not found",
         )
 
-    key.last_used_at = utcnow()
-    session.add(key)
-    await session.commit()
+    last_used = ensure_aware_utc(key.last_used_at) if key.last_used_at else None
+    if last_used is None or utcnow() - last_used > LAST_USED_UPDATE_INTERVAL:
+        key.last_used_at = utcnow()
+        session.add(key)
+        await session.commit()
     return tenant
 
 

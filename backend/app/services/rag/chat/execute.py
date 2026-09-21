@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -12,6 +13,16 @@ from app.services.rag.chat.events import sse_event
 from app.services.rag.chat.prepare import PreparedChat, chunk_sources
 from app.services.rag.chat.reply import generate_reply, stream_reply
 from app.services.rag.vector_store import RetrievedChunk
+
+PARTIAL_ERROR_CODE = "CLIENT_DISCONNECTED"
+
+
+def _sources_payload(prepared: PreparedChat, sources: list[dict]) -> dict:
+    return {
+        "conversation_id": prepared.conversation.id,
+        "grounded": prepared.grounded,
+        "sources": sources,
+    }
 
 
 async def execute_reply(
@@ -61,7 +72,7 @@ async def stream_events(
 ) -> AsyncGenerator[str, None]:
     """SSE stream for one reply. The provider is always closed here, never by the route."""
     sources = chunk_sources(prepared.used_chunks)
-    yield sse_event("sources", {"grounded": prepared.grounded, "sources": sources})
+    yield sse_event("sources", _sources_payload(prepared, sources))
 
     pieces: list[str] = []
     try:
@@ -76,12 +87,13 @@ async def stream_events(
             pieces.append(piece)
             yield sse_event("token", {"text": piece})
     except LLMProviderError as exc:
+        partial = "".join(pieces)
         async with session_scope() as session:
             await append_message(
                 session,
                 prepared.conversation.id,
                 role=MessageRole.ASSISTANT,
-                content=exc.message,
+                content=partial or exc.message,
                 provider=prepared.provider_id,
                 model=prepared.model,
                 grounded=False,
@@ -89,6 +101,13 @@ async def stream_events(
             )
         yield sse_event("error", {"code": exc.code, "message": exc.message})
         return
+    except (GeneratorExit, asyncio.CancelledError):
+        partial = "".join(pieces)
+        if partial:
+            await _persist_in_background(
+                prepared, content=partial, sources=sources
+            )
+        raise
     finally:
         await prepared.provider.aclose()
 
@@ -111,3 +130,38 @@ async def stream_events(
             "grounded": prepared.grounded,
         },
     )
+
+
+async def _persist_in_background(
+    prepared: PreparedChat, *, content: str, sources: list[dict]
+) -> None:
+    """Best-effort save of a partial reply once the client has disconnected.
+
+    Runs in a shielded task so the write survives the response task being
+    cancelled; a failure here must never break the disconnect path.
+    """
+
+    async def _save() -> None:
+        async with session_scope() as session:
+            await append_message(
+                session,
+                prepared.conversation.id,
+                role=MessageRole.ASSISTANT,
+                content=content,
+                provider=prepared.provider_id,
+                model=prepared.model,
+                grounded=False,
+                error_code=PARTIAL_ERROR_CODE,
+                sources=sources,
+            )
+
+    future = asyncio.create_task(_save())
+
+    def _consume(_task: asyncio.Task) -> None:
+        _task.exception()
+
+    future.add_done_callback(_consume)
+    try:
+        await asyncio.shield(future)
+    except asyncio.CancelledError:
+        pass

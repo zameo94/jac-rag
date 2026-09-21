@@ -109,6 +109,9 @@ export const api = {
     },
   },
   members: {
+    me(tenantId: number): Promise<Membership> {
+      return request(`/tenants/${tenantId}/me`);
+    },
     list(tenantId: number): Promise<Member[]> {
       return request(`/tenants/${tenantId}/members`);
     },

@@ -202,6 +202,33 @@ async def test_resolve_embed_tenant_valid_updates_last_used(client, session_fact
     assert stored.last_used_at is not None
 
 
+async def test_resolve_embed_tenant_does_not_stamp_recently_used(
+    client, session_factory
+):
+    from app.core.datetimes import ensure_aware_utc, utcnow
+
+    headers = await register_and_login(client, "embed-fresh@example.com")
+    owner_id = await user_id_for(client, headers)
+    tenant_id = await create_tenant(client, headers)
+    key, plaintext = await add_key(session_factory, tenant_id, owner_id)
+
+    async with session_factory() as session:
+        stored = await session.get(ApiKey, key.id)
+        stored.last_used_at = utcnow()
+        await session.commit()
+        before = stored.last_used_at
+
+    async with session_factory() as session:
+        tenant = await resolve_embed_tenant(session, plaintext)
+
+    assert tenant.id == tenant_id
+
+    async with session_factory() as session:
+        stored = await session.get(ApiKey, key.id)
+    assert stored.last_used_at is not None
+    assert ensure_aware_utc(stored.last_used_at) == ensure_aware_utc(before)
+
+
 async def test_get_embed_tenant_reads_header(client, session_factory):
     headers = await register_and_login(client, "embed-header@example.com")
     owner_id = await user_id_for(client, headers)

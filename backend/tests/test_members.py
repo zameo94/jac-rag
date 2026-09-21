@@ -33,6 +33,30 @@ async def test_list_members_includes_owner(client):
     assert members[0]["role"] == "OWNER"
 
 
+async def test_current_membership_endpoint(client, session_factory):
+    owner = await register_and_login(client, "me-owner@example.com")
+    tenant = await create_tenant(client, owner)
+
+    response = await client.get(f"{TENANTS_URL}/{tenant['id']}/me", headers=owner)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "OWNER"
+    assert body["user_id"] is not None
+    assert body["tenant_id"] == tenant["id"]
+
+
+async def test_current_membership_requires_membership(client):
+    owner = await register_and_login(client, "me-owner@example.com")
+    outsider = await register_and_login(client, "me-outsider@example.com")
+    tenant = await create_tenant(client, owner)
+
+    response = await client.get(f"{TENANTS_URL}/{tenant['id']}/me", headers=outsider)
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "NOT_A_MEMBER"
+
+
 async def test_list_members_requires_membership(client):
     owner = await register_and_login(client, "owner@example.com")
     outsider = await register_and_login(client, "outsider@example.com")

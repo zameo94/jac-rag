@@ -113,6 +113,7 @@ async def test_stream_emits_sources_tokens_and_done(
     events = parse_events(response.text)
     assert [name for name, _ in events] == ["sources", "token", "token", "done"]
     assert events[0][1]["grounded"] is True
+    assert events[0][1]["conversation_id"] is not None
     assert len(events[0][1]["sources"]) == 1
     assert "".join(data["text"] for name, data in events if name == "token") == "Ciao mondo"
     assert events[-1][1]["provider"] == "ollama"
@@ -140,7 +141,9 @@ async def test_stream_strict_refusal_without_context(
 
     events = parse_events(response.text)
     assert [name for name, _ in events] == ["sources", "token", "done"]
-    assert events[0][1] == {"grounded": False, "sources": []}
+    assert events[0][1]["grounded"] is False
+    assert events[0][1]["sources"] == []
+    assert events[0][1]["conversation_id"] is not None
     assert provider.calls == []
     assert provider.closed is True
 
@@ -169,6 +172,7 @@ async def test_stream_provider_error_mid_stream(
     async with session_factory() as session:
         messages = (await session.exec(select(Message).order_by(Message.id))).all()
     assert messages[-1].error_code == "LLM_UNAVAILABLE"
+    assert messages[-1].content == "A"
 
 
 async def test_stream_rejects_disabled_provider_before_stream(
@@ -251,3 +255,63 @@ async def test_stream_reuses_conversation_with_history(
         "assistant",
         "user",
     ]
+
+
+async def test_stream_disconnect_persists_partial_reply(
+    client, qdrant, session_factory, monkeypatch
+):
+    import asyncio
+
+    from app.schemas.tenant import AnswerMode
+    from app.services.rag.chat.execute import stream_events
+    from app.services.rag.chat.prepare import PreparedChat
+
+    headers = await register_and_login(client, "stream-conn@example.com")
+    tenant_id = await create_tenant(client, headers)
+    user_id = await user_id_for(client, headers)
+    async with session_factory() as session:
+        conversation = Conversation(
+            tenant_id=tenant_id, user_id=user_id, title="test"
+        )
+        session.add(conversation)
+        await session.commit()
+        await session.refresh(conversation)
+
+    provider = StreamingProvider(pieces=("A", "B"))
+    patch_provider(monkeypatch, provider)
+    prepared = PreparedChat(
+        provider=provider,
+        provider_id="ollama",
+        model="m",
+        grounded=True,
+        used_chunks=[],
+        conversation=conversation,
+        history=[],
+        answer_mode=AnswerMode.ASSISTIVE,
+        locale="it",
+    )
+
+    generator = stream_events(prepared, "ciao")
+    await generator.__anext__()
+    await generator.__anext__()
+    with pytest.raises(asyncio.CancelledError):
+        await generator.athrow(asyncio.CancelledError())
+
+    assert provider.closed is True
+
+    async def wait_for_message() -> Message:
+        async with asyncio.timeout(5):
+            while True:
+                async with session_factory() as session:
+                    message = (
+                        await session.exec(select(Message).order_by(Message.id))
+                    ).all()
+                if message:
+                    return message[0]
+                await asyncio.sleep(0.02)
+
+    saved = await wait_for_message()
+    assert saved.role.value == "assistant"
+    assert saved.content == "A"
+    assert saved.error_code == "CLIENT_DISCONNECTED"
+    assert saved.grounded is False

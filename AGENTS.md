@@ -123,6 +123,8 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   refresh. JWT carries only `user_id`.
 - Onboarding is two-step: `register` creates only the user; then either
   `create tenant` (creator becomes `OWNER`) or `accept invitation`.
+  `GET /api/v1/tenants/{id}/me` returns the caller's membership (role lookups in the
+  CMS never fetch the member list).
 - Invitations: admin generates a token, shared out-of-band; store only `token_hash`
   with expiry and `accepted_at` (one-shot).
 - **Widget embed key**: the CMS (OWNER/ADMIN) creates a key, shown **once**; only its
@@ -149,14 +151,17 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   headers `Content-Type`, `X-Embed-Key`, `X-Visitor-Token`; the CMS keeps the
   credentialed, origin-restricted policy.
 - **Rate limit**: Redis fixed window per embed key (`WIDGET_RATE_LIMIT_PER_MINUTE`,
-  `app/services/rate_limit.py`); `0` disables.
+  `app/services/rate_limit.py`); `0` disables. Enforced on the chat POSTs **and** the
+  read routes (`/config`, `/conversations`, `/conversations/{id}`).
 - **SSE contract** (`POST .../chat/stream`, CMS and widget): `sources` (once, with
-  `grounded` + `sources`), then `token`* (`{"text": ...}`), then `done`
-  (`{"provider", "model", "grounded"}`); provider failures after the first byte emit
-  `error` (`{"code", "message"}`). Pre-stream errors stay normal JSON. Deterministic
-  refusal (strict, no context) emits `sources` empty → one `token` → `done` without
-  calling the provider. Consume with `fetch` + `ReadableStream` (not `EventSource`,
-  which cannot POST or send headers).
+  `conversation_id` + `grounded` + `sources`), then `token`* (`{"text": ...}`), then
+  `done` (`{"provider", "model", "grounded"}`); provider failures after the first byte
+  emit `error` (`{"code", "message"}`), the partial reply is persisted with
+  `error_code`; a client disconnect mid-stream persists the partial as
+  `CLIENT_DISCONNECTED` in the background. Pre-stream errors stay normal JSON.
+  Deterministic refusal (strict, no context) emits `sources` empty → one `token` →
+  `done` without calling the provider. Consume with `fetch` + `ReadableStream` (not
+  `EventSource`, which cannot POST or send headers).
 - **Streaming route resources**: auth + retrieval run in a `session_scope()` unit of
   work closed *before* the stream starts; the provider is closed in the generator's
   `finally`, never by the route.

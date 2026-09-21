@@ -152,6 +152,7 @@ async def test_widget_chat_persists_conversation_for_visitor(
     body = response.json()
     assert body["answer"] == "Risposta widget"
     assert body["grounded"] is True
+    assert body["conversation_id"] > 0
     assert len(body["sources"]) == 1
 
     async with session_factory() as session:
@@ -215,6 +216,7 @@ async def test_widget_chat_stream_emits_events(
     assert response.status_code == 200
     events = parse_events(response.text)
     assert [name for name, _ in events] == ["sources", "token", "token", "done"]
+    assert events[0][1]["conversation_id"] > 0
     assert events[-1][1]["provider"] == "ollama"
 
     async with session_factory() as session:
@@ -324,3 +326,62 @@ async def test_widget_conversations_are_isolated_per_visitor(
         "user",
         "assistant",
     ]
+
+
+async def test_widget_conversations_are_paginated(
+    client, qdrant, session_factory, monkeypatch
+):
+    tenant_id, embed_key = await create_tenant_with_key(
+        client, session_factory, "paged@example.com"
+    )
+    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    patch_provider(monkeypatch, FakeProvider())
+    visitor_token = await open_session(client, embed_key)
+    headers = widget_headers(embed_key, visitor_token)
+
+    for index in range(5):
+        response = await client.post(
+            "/api/v1/widget/chat",
+            json={"message": f"domanda {index}"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+    full = await client.get("/api/v1/widget/conversations", headers=headers)
+    assert len(full.json()) == 5
+
+    page = await client.get(
+        "/api/v1/widget/conversations?limit=2&offset=1", headers=headers
+    )
+    assert [item["id"] for item in page.json()] == [
+        item["id"] for item in full.json()[1:3]
+    ]
+
+
+async def test_widget_read_routes_are_rate_limited(client, session_factory, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("WIDGET_RATE_LIMIT_PER_MINUTE", "1")
+    get_settings.cache_clear()
+
+    async def deny(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr("app.services.rate_limit.check_rate_limit", deny)
+
+    tenant_id, embed_key = await create_tenant_with_key(
+        client, session_factory, "limited-read@example.com"
+    )
+    visitor_token = security.create_visitor_token(tenant_id)
+    headers = widget_headers(embed_key, visitor_token)
+
+    config = await client.get("/api/v1/widget/config", headers=headers)
+    listed = await client.get("/api/v1/widget/conversations", headers=headers)
+    fetched = await client.get(
+        "/api/v1/widget/conversations/1", headers=headers
+    )
+
+    assert config.status_code == 429
+    assert config.json()["code"] == "RATE_LIMITED"
+    assert listed.status_code == 429
+    assert fetched.status_code == 429
