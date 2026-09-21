@@ -45,6 +45,11 @@
     "EMPTY_FILE": "The uploaded file is empty.",
     "FILE_TOO_LARGE": "The file exceeds the maximum allowed size.",
     "DOCUMENT_NOT_FOUND": "Document not found.",
+    "PROVIDER_NOT_AVAILABLE": "The selected provider is not available for this workspace.",
+    "PROVIDER_NOT_CONFIGURED": "The external provider is not configured for this workspace.",
+    "NO_PROVIDER_AVAILABLE": "No LLM provider is available.",
+    "UNKNOWN_PROVIDER": "Unknown provider.",
+    "INCOMPLETE_EXTERNAL_CONFIG": "The external provider needs base URL, model and API key.",
     "HTTP_ERROR": "Unexpected server error."
   },
   "auth": {
@@ -118,11 +123,24 @@
   },
   "settings": {
     "title": "LLM settings",
+    "usedProvider": "Provider used for answers",
+    "noProviders": "No provider available.",
+    "allowedProviders": "Allowed providers",
+    "externalSection": "External provider (OpenAI-compatible API)",
+    "externalConfigured": "Configured",
+    "externalNotConfigured": "Not configured",
     "provider": "Provider",
     "model": "Model",
     "baseUrl": "Base URL",
     "apiKey": "API key",
-    "comingSoon": "Coming soon"
+    "apiKeyHint": "The key is never shown; leave empty to keep it unchanged.",
+    "editKey": "Edit key",
+    "save": "Save",
+    "saving": "Saving...",
+    "providers": {
+      "ollama": "Ollama (local)",
+      "external_api": "External API"
+    }
   },
   "playground": {
     "title": "Chat playground",

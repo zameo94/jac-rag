@@ -38,7 +38,8 @@ backend/
     api/v1/                # routers, one per resource
     services/
       crypto.py            # encrypt/decrypt tenant secrets
-      llm/                 # base.py, ollama.py, openai.py, factory.py
+      llm/                 # base.py + factory.py; providers/ (ollama, openai)
+                           # and resolution/ (capability, tenant, user, external)
       rag/
         ir.py              # Common Document IR (blocks, tables, rows, cells)
         diagnostics.py     # extraction/oversized diagnostics
@@ -46,9 +47,8 @@ backend/
         serialization.py   # IR -> self-descriptive text
         chunker.py         # structure-aware chunker over the Document IR
         embeddings.py      # fastembed wrapper
-        ingest.py          # parse -> IR -> chunk -> embed -> upsert
-        retrieve.py        # relevance gate
-        chat.py            # prompt + generation
+        retrieve.py        # hybrid retrieval + relevance gate
+        chat/              # prompt.py + reply.py
     tasks/                 # taskiq tasks (own AsyncSession)
   alembic/                 # async env.py
   tests/
@@ -196,9 +196,19 @@ message -> fastembed -> search Qdrant top-k
 
 ## LLM providers
 
-- Abstraction: `LLMProvider` protocol with `OllamaProvider` and `OpenAIProvider`.
-- Resolved per tenant from `llm_settings`; per-tenant overrides global defaults.
-- External keys encrypted; local Ollama reached over the docker network.
+- Abstraction: `LLMProvider` with `OllamaProvider` and `OpenAIProvider`
+  (OpenAI-compatible: OpenAI, OpenRouter, OpenCode, vLLM...).
+- Exactly one provider per request, chosen explicitly by the user among the
+  tenant's allowed providers; no fallback, no multi-provider orchestration.
+- Global capability: `EXTERNAL_API_ENABLED` gates whether `external_api` is
+  available at all. Per tenant: `allowed_providers`, `default_provider`, model
+  override; per user: `selected_provider`.
+- `external_api` needs tenant config stored in the generic `settings` table
+  (`external_base_url`, `external_model`, `external_api_key` encrypted).
+- Endpoints: `GET/PUT /api/v1/tenants/{id}/llm/settings` (OWNER/ADMIN),
+  `GET /api/v1/tenants/{id}/llm/config` and `PUT .../llm/provider` (members).
+- External keys encrypted at rest (`services/crypto.py`, Fernet) and never
+  returned; local Ollama reached over the docker network.
 
 ## Secrets
 

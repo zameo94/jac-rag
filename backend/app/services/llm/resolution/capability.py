@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 from app.core.config import get_settings
 from app.services.llm.base import LLMProviderError
-from app.services.llm.ollama import OLLAMA_PROVIDER_NAME
+from app.services.llm.providers.ollama import OLLAMA_PROVIDER_NAME
+from app.services.llm.providers.openai import EXTERNAL_API_PROVIDER_NAME
 
-EXTERNAL_API_PROVIDER_NAME = "external_api"
 KNOWN_PROVIDER_IDS: tuple[str, ...] = (
     OLLAMA_PROVIDER_NAME,
     EXTERNAL_API_PROVIDER_NAME,
@@ -23,9 +23,9 @@ class ProviderCapability:
 def provider_capabilities() -> tuple[ProviderCapability, ...]:
     """Globally available LLM providers.
 
-    Only Ollama is implemented and enabled. ``external_api`` is represented as a
-    known but disabled capability: it is intentionally not configurable yet, so a
-    non-implemented external provider can never be selected.
+    Ollama is always available. ``external_api`` is only globally available when
+    the deployment enables it (``EXTERNAL_API_ENABLED``); a tenant must also allow
+    it and provide its base URL, model and key.
     """
     settings = get_settings()
     return (
@@ -36,7 +36,7 @@ def provider_capabilities() -> tuple[ProviderCapability, ...]:
         ),
         ProviderCapability(
             id=EXTERNAL_API_PROVIDER_NAME,
-            enabled=False,
+            enabled=settings.external_api_enabled,
             models=(),
         ),
     )

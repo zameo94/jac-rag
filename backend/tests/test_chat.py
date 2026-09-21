@@ -8,8 +8,6 @@ from app.schemas.setting import SettingScope
 from app.schemas.tenant import AnswerMode
 from app.services.llm import LLMProvider, LLMProviderError, LLMResponse
 from app.services.rag import embeddings, vector_store
-from app.services.rag.chat import expand_citations
-from app.services.rag.vector_store import RetrievedChunk
 from tests.helpers import register_and_login, user_id_for
 
 CHUNK_TEXT = "Il colore preferito della macchina aziendale e il blu."
@@ -34,6 +32,13 @@ class FakeProvider(LLMProvider):
 class FailingProvider(FakeProvider):
     async def generate(self, messages, *, model=None, temperature=0.0):
         raise LLMProviderError("LLM_UNAVAILABLE", "ollama is down")
+
+
+def patch_provider(monkeypatch, provider):
+    async def build(session, tenant_id, provider_id, model=None):
+        return provider, "test-model"
+
+    monkeypatch.setattr(chat_module, "build_provider", build)
 
 
 @pytest.fixture
@@ -75,11 +80,11 @@ async def test_chat_grounded_returns_answer_and_sources(client, qdrant, monkeypa
     fake = FakeProvider()
     created: list[str] = []
 
-    def spy(provider_id, *, model=None):
+    async def build(session, tenant_id, provider_id, model=None):
         created.append(provider_id)
-        return fake
+        return fake, "llama3.2"
 
-    monkeypatch.setattr(chat_module, "create_provider", spy)
+    monkeypatch.setattr(chat_module, "build_provider", build)
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -105,7 +110,7 @@ async def test_chat_strict_refuses_without_context(client, qdrant, monkeypatch):
     tenant_id = await create_tenant(client, headers)
 
     fake = FakeProvider()
-    monkeypatch.setattr(chat_module, "create_provider", lambda provider_id, *, model=None: fake)
+    patch_provider(monkeypatch, fake)
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -134,7 +139,7 @@ async def test_chat_assistive_answers_without_context(
         await session.commit()
 
     fake = FakeProvider(reply="Risposta assistiva")
-    monkeypatch.setattr(chat_module, "create_provider", lambda provider_id, *, model=None: fake)
+    patch_provider(monkeypatch, fake)
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -183,9 +188,7 @@ async def test_chat_provider_failure_returns_503(client, qdrant, monkeypatch):
     headers = await register_and_login(client, "chat-fail@example.com")
     tenant_id = await create_tenant(client, headers)
     await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
-    monkeypatch.setattr(
-        chat_module, "create_provider", lambda provider_id, *, model=None: FailingProvider()
-    )
+    patch_provider(monkeypatch, FailingProvider())
 
     response = await client.post(
         f"/api/v1/tenants/{tenant_id}/chat",
@@ -216,22 +219,3 @@ async def test_chat_rejects_non_member(client, qdrant):
 
     assert response.status_code == 403
     assert response.json()["code"] == "NOT_A_MEMBER"
-
-
-def chunk(document_id: int, filename: str) -> RetrievedChunk:
-    return RetrievedChunk(
-        document_id=document_id, chunk_index=0, text="t", score=0.5, filename=filename
-    )
-
-
-def test_expand_citations_replaces_known_indices():
-    chunks = [chunk(1, "a.pdf"), chunk(2, "b.pdf")]
-
-    assert (
-        expand_citations("Vedi [1] e [2].", chunks)
-        == "Vedi [1: a.pdf] e [2: b.pdf]."
-    )
-
-
-def test_expand_citations_keeps_unknown_indices():
-    assert expand_citations("Vedi [5].", [chunk(1, "a.pdf")]) == "Vedi [5]."

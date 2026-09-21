@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import re
-
 from app.schemas.tenant import AnswerMode
-from app.services.llm.base import LLMMessage, LLMProvider, LLMRole
+from app.services.llm.base import LLMMessage, LLMRole
 from app.services.rag.vector_store import RetrievedChunk
 
 SUPPORTED_LOCALES = ("it", "en")
 FALLBACK_LOCALE = "it"
-
-CITATION_RE = re.compile(r"\[(\d+)\]")
 
 REFUSALS = {
     "it": "Non ho trovato questa informazione nei documenti disponibili.",
@@ -89,36 +85,3 @@ def build_messages(
         LLMMessage(role=LLMRole.SYSTEM, content=system),
         LLMMessage(role=LLMRole.USER, content=user_content),
     ]
-
-
-def expand_citations(answer: str, chunks: list[RetrievedChunk]) -> str:
-    """Replace ``[n]`` citations with ``[n: filename]`` (code, not the LLM)."""
-
-    def replace(match: re.Match[str]) -> str:
-        index = int(match.group(1))
-        if 1 <= index <= len(chunks):
-            return f"[{index}: {chunks[index - 1].filename}]"
-        return match.group(0)
-
-    return CITATION_RE.sub(replace, answer)
-
-
-async def generate_reply(
-    provider: LLMProvider,
-    question: str,
-    chunks: list[RetrievedChunk],
-    *,
-    answer_mode: AnswerMode,
-    locale: str | None,
-) -> tuple[str, list[RetrievedChunk]]:
-    """Generate one reply with the single selected provider.
-
-    In strict mode with no grounded context the refusal is deterministic and the
-    provider is not called. ``chunks`` are only the chunks actually used.
-    """
-    if answer_mode is AnswerMode.STRICT and not chunks:
-        return refusal_message(locale), []
-    response = await provider.generate(
-        build_messages(question, chunks, answer_mode=answer_mode, locale=locale)
-    )
-    return expand_citations(response.content, chunks), list(chunks)

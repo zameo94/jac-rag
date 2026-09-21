@@ -4,9 +4,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.schemas.setting import SettingScope
 from app.services.llm.base import LLMProviderError
-from app.services.llm.capability import ProviderCapability
-from app.services.llm.defaults import global_default_provider
-from app.services.llm.tenant import (
+from app.services.llm.resolution.capability import ProviderCapability
+from app.services.llm.resolution.defaults import global_default_provider
+from app.services.llm.resolution.tenant import (
     LLM_SETTING_TYPE,
     available_providers_for_tenant,
     tenant_default_provider,

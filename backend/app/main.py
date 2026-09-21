@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, chat, documents, invitations, members, tenants
+from app.api.v1 import auth, chat, documents, invitations, llm, members, tenants
 from app.core.config import APP_NAME, APP_VERSION, get_settings
 from app.core.errors import register_exception_handlers
 
@@ -31,6 +31,7 @@ app.include_router(members.router, prefix="/api/v1/tenants", tags=["Members"])
 app.include_router(invitations.router, prefix="/api/v1", tags=["Invitations"])
 app.include_router(documents.router, prefix="/api/v1/tenants", tags=["Documents"])
 app.include_router(chat.router, prefix="/api/v1/tenants", tags=["Chat"])
+app.include_router(llm.router, prefix="/api/v1/tenants", tags=["LLM"])
 
 
 @app.get("/health", status_code=200, tags=["Health"])
