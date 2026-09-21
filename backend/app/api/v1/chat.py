@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from qdrant_client import AsyncQdrantClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.config import get_settings
 from app.core.deps import get_current_membership, get_current_user
 from app.core.errors import api_error
 from app.database import get_session
@@ -15,6 +16,7 @@ from app.services.llm.resolution.tenant import tenant_model_override
 from app.services.llm.resolution.user import resolve_user_provider
 from app.services.rag import vector_store
 from app.services.rag.chat import generate_reply
+from app.services.rag.rerank import release_reranker, rerank_chunks
 from app.services.rag.retrieve import has_context, retrieve_chunks
 
 router = APIRouter()
@@ -69,10 +71,25 @@ async def chat(
     except LLMProviderError as exc:
         raise provider_error(exc)
 
+    settings = get_settings()
     try:
-        chunks = await retrieve_chunks(client, tenant_id, payload.message)
+        window = (
+            settings.rerank_candidates
+            if settings.rerank_enabled
+            else settings.retrieval_top_k
+        )
+        chunks = await retrieve_chunks(client, tenant_id, payload.message, top_k=window)
         grounded = has_context(chunks)
-        used = chunks if grounded else []
+        if not grounded:
+            used = []
+        elif settings.rerank_enabled:
+            used = rerank_chunks(
+                payload.message, chunks, top_k=settings.chat_context_k
+            )
+        else:
+            used = chunks[: settings.chat_context_k]
+        if settings.rerank_enabled and settings.rerank_mode == "on_demand":
+            release_reranker()
         answer_text, used_chunks = await generate_reply(
             provider,
             payload.message,
