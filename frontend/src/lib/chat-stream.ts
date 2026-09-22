@@ -1,8 +1,6 @@
 import { ApiError } from "./api-error";
 import type { ChatSource } from "./types";
 
-const API_BASE = "/api/v1";
-
 export interface ChatStreamHandlers {
   onSources?: (payload: {
     conversation_id: number;
@@ -71,12 +69,15 @@ export async function streamChat(
   handlers: ChatStreamHandlers,
   conversationId?: number | null,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/tenants/${tenantId}/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ message, conversation_id: conversationId ?? null }),
-  });
+  const response = await fetch(
+    `/api/chat-stream?tenantId=${encodeURIComponent(String(tenantId))}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ message, conversation_id: conversationId ?? null }),
+    },
+  );
 
   if (!response.ok) {
     let payload = { code: "HTTP_ERROR", message: response.statusText };
@@ -96,16 +97,40 @@ export async function streamChat(
 
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parsed = parseSseChunk(buffer);
-    buffer = parsed.rest;
-    for (const event of parsed.events) dispatch(event, handlers);
-  }
+  let finished = false;
+  const markFinished = (event: ParsedEvent) => {
+    if (event.event === "done" || event.event === "error") finished = true;
+  };
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseChunk(buffer);
+      buffer = parsed.rest;
+      for (const event of parsed.events) {
+        dispatch(event, handlers);
+        markFinished(event);
+      }
+    }
   if (buffer.trim()) {
     const parsed = parseSseChunk(`${buffer}\n\n`);
-    for (const event of parsed.events) dispatch(event, handlers);
+    for (const event of parsed.events) {
+      dispatch(event, handlers);
+      markFinished(event);
+    }
   }
+  if (!finished) {
+    throw new ApiError(0, {
+      code: "STREAM_INCOMPLETE",
+      message: "The connection ended before the answer completed.",
+    });
+  }
+} catch (err) {
+  if (err instanceof ApiError) throw err;
+  throw new ApiError(0, {
+    code: "NETWORK_ERROR",
+    message: "The connection was interrupted.",
+  });
+}
 }

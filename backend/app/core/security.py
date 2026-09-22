@@ -15,6 +15,7 @@ ACCESS_TOKEN_TYPE = "access"
 REFRESH_TOKEN_TYPE = "refresh"
 VISITOR_TOKEN_TYPE = "visitor"
 VISITOR_TENANT_CLAIM = "tenant_id"
+SESSION_STARTED_CLAIM = "session_started_at"
 JWT_ALGORITHM = "HS256"
 
 
@@ -22,6 +23,12 @@ JWT_ALGORITHM = "HS256"
 class VisitorIdentity:
     subject: str
     tenant_id: int
+
+
+@dataclass(frozen=True)
+class RefreshIdentity:
+    user_id: int
+    session_started_at: datetime
 
 
 class TokenError(Exception):
@@ -56,7 +63,13 @@ def embed_key_prefix(key: str) -> str:
     return key[:EMBED_KEY_PREFIX_LENGTH]
 
 
-def _create_token(user_id: int, token_type: str, expires_delta: timedelta) -> str:
+def _create_token(
+    user_id: int,
+    token_type: str,
+    expires_delta: timedelta,
+    *,
+    extra_claims: dict | None = None,
+) -> str:
     issued_at = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
@@ -65,6 +78,8 @@ def _create_token(user_id: int, token_type: str, expires_delta: timedelta) -> st
         "iat": issued_at,
         "exp": issued_at + expires_delta,
     }
+    if extra_claims:
+        payload.update(extra_claims)
     return jwt.encode(payload, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
 
@@ -73,12 +88,42 @@ def create_access_token(user_id: int, expires_delta: timedelta | None = None) ->
     return _create_token(user_id, ACCESS_TOKEN_TYPE, delta)
 
 
-def create_refresh_token(user_id: int, expires_delta: timedelta | None = None) -> str:
-    delta = expires_delta or timedelta(days=settings.refresh_token_expire_days)
-    return _create_token(user_id, REFRESH_TOKEN_TYPE, delta)
+def refresh_token_lifetime(session_started_at: datetime) -> timedelta:
+    """Sliding session lifetime: activity timeout bounded by the absolute ceiling.
+
+    With ``SESSION_IDLE_TIMEOUT_MINUTES=0`` the refresh token keeps the fixed
+    absolute ``REFRESH_TOKEN_EXPIRE_DAYS`` lifetime. Otherwise every refresh is
+    re-issued with ``exp = min(now + idle, session_started_at + days)``, so a
+    session dies ``idle`` after the last activity and never outlives the
+    absolute ceiling measured from the first login.
+    """
+    settings = get_settings()
+    idle = timedelta(minutes=settings.session_idle_timeout_minutes)
+    ceiling = timedelta(days=settings.refresh_token_expire_days)
+    if idle <= timedelta(0):
+        return ceiling
+    elapsed = datetime.now(timezone.utc) - session_started_at
+    remaining_ceiling = ceiling - elapsed
+    return max(timedelta(0), min(idle, remaining_ceiling))
 
 
-def decode_token(token: str, expected_type: str) -> int:
+def create_refresh_token(
+    user_id: int,
+    expires_delta: timedelta | None = None,
+    *,
+    session_started_at: datetime | None = None,
+) -> str:
+    started_at = session_started_at or datetime.now(timezone.utc)
+    delta = expires_delta or refresh_token_lifetime(started_at)
+    return _create_token(
+        user_id,
+        REFRESH_TOKEN_TYPE,
+        delta,
+        extra_claims={SESSION_STARTED_CLAIM: int(started_at.timestamp())},
+    )
+
+
+def _decode_payload(token: str, expected_type: str) -> dict:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as exc:
@@ -86,15 +131,37 @@ def decode_token(token: str, expected_type: str) -> int:
 
     if payload.get("type") != expected_type:
         raise TokenError(f"Invalid token type, expected {expected_type}")
+    return payload
 
+
+def _subject_user_id(payload: dict) -> int:
     subject = payload.get("sub")
     if subject is None:
         raise TokenError("Token is missing the subject")
-
     try:
         return int(subject)
     except (TypeError, ValueError) as exc:
         raise TokenError("Token subject is not a valid user id") from exc
+
+
+def decode_token(token: str, expected_type: str) -> int:
+    return _subject_user_id(_decode_payload(token, expected_type))
+
+
+def decode_refresh_token(token: str) -> RefreshIdentity:
+    """Return the user and the original session start carried by a refresh token.
+
+    Tokens issued before the claim existed fall back to ``iat``, so an in-flight
+    session is not invalidated by the rollout.
+    """
+    payload = _decode_payload(token, REFRESH_TOKEN_TYPE)
+    user_id = _subject_user_id(payload)
+    started = payload.get(SESSION_STARTED_CLAIM, payload.get("iat"))
+    if isinstance(started, (int, float)):
+        session_started_at = datetime.fromtimestamp(started, tz=timezone.utc)
+    else:
+        session_started_at = datetime.now(timezone.utc)
+    return RefreshIdentity(user_id=user_id, session_started_at=session_started_at)
 
 
 def create_visitor_token(tenant_id: int, expires_delta: timedelta | None = None) -> str:

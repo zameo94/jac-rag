@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => Object.assign((key: string) => key, { has: () => true }),
 }));
 
 vi.mock("@/features/tenants/TenantProvider", () => ({
@@ -13,6 +13,9 @@ vi.mock("@/lib/chat-stream", () => ({ streamChat: vi.fn() }));
 
 import { ChatPlayground } from "@/features/chat/ChatPlayground";
 import { streamChat } from "@/lib/chat-stream";
+
+import { ApiError } from "@/lib/api-error";
+import type { ChatStreamHandlers } from "@/lib/chat-stream";
 
 const streamMock = vi.mocked(streamChat);
 
@@ -63,7 +66,48 @@ describe("ChatPlayground", () => {
 
     await waitFor(() => expect(streamMock).toHaveBeenCalled());
     expect(screen.getByText("domanda")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("LLM_UNAVAILABLE");
     expect(container.querySelectorAll(".bg-emerald-50")).toHaveLength(0);
+  });
+
+  it("shows an error when the stream is interrupted without completion", async () => {
+    streamMock.mockRejectedValue(
+      new ApiError(0, { code: "STREAM_INCOMPLETE", message: "ended" }),
+    );
+
+    const { container } = render(<ChatPlayground />);
+
+    fireEvent.change(screen.getByPlaceholderText("placeholder"), {
+      target: { value: "domanda" },
+    });
+    fireEvent.click(screen.getByText("send"));
+
+    await waitFor(() => expect(streamMock).toHaveBeenCalled());
+    expect(screen.getByRole("alert")).toHaveTextContent("STREAM_INCOMPLETE");
+    expect(container.querySelectorAll(".bg-emerald-50")).toHaveLength(0);
+  });
+
+  it("shows a searching hint before the sources arrive", async () => {
+    let receivedHandlers: ChatStreamHandlers | undefined;
+    streamMock.mockImplementation(
+      (_tenantId, _message, handlers) =>
+        new Promise<never>(() => {
+          receivedHandlers = handlers;
+        }),
+    );
+
+    render(<ChatPlayground />);
+
+    fireEvent.change(screen.getByPlaceholderText("placeholder"), {
+      target: { value: "domanda" },
+    });
+    fireEvent.click(screen.getByText("send"));
+
+    await waitFor(() => expect(streamMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("searching")).toBeInTheDocument());
+
+    receivedHandlers?.onSources?.({ conversation_id: 7, grounded: true, sources: [] });
+    await waitFor(() => expect(screen.queryByText("searching")).toBeNull());
   });
 
   it("reuses the conversation id on subsequent sends", async () => {

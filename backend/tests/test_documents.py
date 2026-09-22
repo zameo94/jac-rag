@@ -63,6 +63,20 @@ async def test_upload_rejects_unsupported_type(client):
     assert response.json()["code"] == "UNSUPPORTED_FILE_TYPE"
 
 
+async def test_upload_rejects_legacy_doc_extension(client):
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+
+    response = await client.post(
+        f"{TENANTS_URL}/{tenant['id']}/documents",
+        files={"file": ("document.doc", b"legacy", "application/msword")},
+        headers=owner,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "UNSUPPORTED_FILE_TYPE"
+
+
 async def test_upload_rejects_empty_file(client):
     owner = await register_and_login(client, "owner@example.com")
     tenant = await create_tenant(client, owner)
@@ -80,6 +94,22 @@ async def test_upload_rejects_file_too_large(client, monkeypatch):
     get_settings.cache_clear()
 
     response = await upload(client, owner, tenant["id"], content=b"x" * 10)
+
+    assert response.status_code == 413
+    assert response.json()["code"] == "FILE_TOO_LARGE"
+
+
+async def test_upload_rejects_by_content_length_header(client, monkeypatch):
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+    monkeypatch.setenv("MAX_UPLOAD_MB", "0")
+    get_settings.cache_clear()
+
+    response = await client.post(
+        f"{TENANTS_URL}/{tenant['id']}/documents",
+        files={"file": ("big.txt", b"x" * 10, "text/plain")},
+        headers={**owner, "content-length": "1000000"},
+    )
 
     assert response.status_code == 413
     assert response.json()["code"] == "FILE_TOO_LARGE"

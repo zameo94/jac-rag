@@ -270,6 +270,71 @@ async def test_logout_clears_cookies(client):
     assert (await client.get(ME_URL)).status_code == 401
 
 
+async def test_register_blocked_by_rate_limit(client, monkeypatch):
+    from app.api.v1 import auth as auth_module
+
+    called = {}
+
+    async def denied(scope, ip, email=None):
+        called["scope"] = scope
+        called["email"] = email
+        return False
+
+    monkeypatch.setattr(auth_module, "auth_allowed", denied)
+
+    response = await do_register(client)
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "RATE_LIMITED"
+    assert called == {"scope": "register", "email": "user@example.com"}
+
+
+async def test_login_blocked_by_rate_limit(client, monkeypatch):
+    from app.api.v1 import auth as auth_module
+
+    async def denied(scope, ip, email=None):
+        return False
+
+    monkeypatch.setattr(auth_module, "auth_allowed", denied)
+
+    response = await do_login(client)
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "RATE_LIMITED"
+
+
+async def test_refresh_blocked_by_rate_limit(client, monkeypatch):
+    from app.api.v1 import auth as auth_module
+
+    called = {}
+
+    async def denied(scope, ip, email=None):
+        called["scope"] = scope
+        called["email"] = email
+        return False
+
+    monkeypatch.setattr(auth_module, "auth_allowed", denied)
+
+    response = await client.post(REFRESH_URL)
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "RATE_LIMITED"
+    assert called == {"scope": "refresh", "email": None}
+
+
+async def test_rate_limit_passed_does_not_block_request(client, monkeypatch):
+    from app.api.v1 import auth as auth_module
+
+    async def allowed(scope, ip, email=None):
+        return True
+
+    monkeypatch.setattr(auth_module, "auth_allowed", allowed)
+
+    response = await do_register(client)
+
+    assert response.status_code == 201
+
+
 async def deactivate(session_factory, email: str) -> None:
     async with session_factory() as session:
         user = (await session.exec(select(User).where(User.email == email))).one()

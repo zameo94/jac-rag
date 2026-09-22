@@ -108,7 +108,7 @@ class QdrantRetrievalIndex:
             parsed = get_parser(document.mime).parse(content, source=document.document_id)
             document_ir = normalize_document(parsed)
             document_chunks = chunk_document(document_ir, chunking)
-            vectors = embeddings.embed_texts([chunk.text for chunk in document_chunks])
+            vectors = await embeddings.embed_texts([chunk.text for chunk in document_chunks])
             metadatas = [_metadata_payload(chunk.metadata) for chunk in document_chunks]
             await vector_store.upsert_chunks(
                 client,
@@ -147,7 +147,7 @@ class QdrantRetrievalIndex:
         return cls(client, tenant_id, chunks, config)
 
     async def search(self, query: str, limit: int) -> list[Hit]:
-        vector = embeddings.embed_query(query)
+        vector = await embeddings.embed_query(query)
         results = await vector_store.search_chunks(self._client, self._tenant_id, vector, limit)
         hits: list[Hit] = []
         for result in results:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncGenerator
 
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -14,7 +15,10 @@ from app.services.rag.chat.prepare import PreparedChat, chunk_sources
 from app.services.rag.chat.reply import generate_reply, stream_reply
 from app.services.rag.vector_store import RetrievedChunk
 
+logger = logging.getLogger(__name__)
+
 PARTIAL_ERROR_CODE = "CLIENT_DISCONNECTED"
+INTERNAL_ERROR_CODE = "STREAM_INTERNAL_ERROR"
 
 
 def _sources_payload(prepared: PreparedChat, sources: list[dict]) -> dict:
@@ -100,6 +104,31 @@ async def stream_events(
                 error_code=exc.code,
             )
         yield sse_event("error", {"code": exc.code, "message": exc.message})
+        return
+    except Exception:
+        logger.exception(
+            "chat stream failed with an unexpected error (conversation %s)",
+            prepared.conversation.id,
+        )
+        partial = "".join(pieces)
+        async with session_scope() as session:
+            await append_message(
+                session,
+                prepared.conversation.id,
+                role=MessageRole.ASSISTANT,
+                content=partial or "Unexpected error",
+                provider=prepared.provider_id,
+                model=prepared.model,
+                grounded=False,
+                error_code=INTERNAL_ERROR_CODE,
+            )
+        yield sse_event(
+            "error",
+            {
+                "code": INTERNAL_ERROR_CODE,
+                "message": "The stream failed with an unexpected error",
+            },
+        )
         return
     except (GeneratorExit, asyncio.CancelledError):
         partial = "".join(pieces)

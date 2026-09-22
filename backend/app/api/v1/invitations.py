@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -9,10 +9,12 @@ from app.core.config import get_settings
 from app.core.datetimes import ensure_aware_utc, utcnow
 from app.core.deps import get_current_user, require_role
 from app.core.errors import api_error
+from app.core.http import client_ip
 from app.database import get_session
 from app.models import Invitation, Membership, Tenant, User
 from app.schemas.invitation import InvitationCreate, InvitationCreated
 from app.schemas.membership import MembershipRead, MembershipRole
+from app.services.rate_limit import auth_allowed
 
 router = APIRouter()
 settings = get_settings()
@@ -87,10 +89,17 @@ async def create_invitation(
 
 @router.post("/invitations/{token}/accept", response_model=MembershipRead)
 async def accept_invitation(
+    request: Request,
     token: str,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Membership:
+    if not await auth_allowed("accept", client_ip(request)):
+        raise api_error(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMITED",
+            "Too many attempts, try again later",
+        )
     invitation = (
         await session.exec(
             select(Invitation).where(Invitation.token_hash == security.hash_token(token))

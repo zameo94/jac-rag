@@ -91,7 +91,6 @@ def _table_block(table: DocxTable, sequence: int) -> TableBlock:
 class DocxParser(DocumentParser):
     mime_types = (
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword",
     )
 
     def parse(

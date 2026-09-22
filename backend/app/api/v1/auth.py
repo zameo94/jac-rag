@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlmodel import select
@@ -8,10 +8,12 @@ from app.core import security
 from app.core.config import get_settings
 from app.core.deps import get_current_user
 from app.core.errors import api_error
+from app.core.http import client_ip
 from app.database import get_session
 from app.models import User
 from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.user import UserRead
+from app.services.rate_limit import auth_allowed
 
 router = APIRouter()
 settings = get_settings()
@@ -20,9 +22,22 @@ ACCESS_COOKIE = "jacrag_access"
 REFRESH_COOKIE = "jacrag_refresh"
 
 
-def _set_auth_cookies(response: Response, user_id: int) -> None:
+async def _enforce_rate_limit(scope: str, request: Request, email: str | None = None) -> None:
+    if not await auth_allowed(scope, client_ip(request), email):
+        raise api_error(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "RATE_LIMITED",
+            "Too many attempts, try again later",
+        )
+
+
+def _set_auth_cookies(
+    response: Response, user_id: int, session_started_at: datetime | None = None
+) -> None:
+    started_at = session_started_at or datetime.now(timezone.utc)
     access_token = security.create_access_token(user_id)
-    refresh_token = security.create_refresh_token(user_id)
+    refresh_token = security.create_refresh_token(user_id, session_started_at=started_at)
+    refresh_lifetime = security.refresh_token_lifetime(started_at)
     common = {
         "httponly": True,
         "secure": settings.cookie_secure,
@@ -39,7 +54,7 @@ def _set_auth_cookies(response: Response, user_id: int) -> None:
     response.set_cookie(
         REFRESH_COOKIE,
         refresh_token,
-        max_age=int(timedelta(days=settings.refresh_token_expire_days).total_seconds()),
+        max_age=max(int(refresh_lifetime.total_seconds()), 0),
         path="/",
         **common,
     )
@@ -52,9 +67,11 @@ def _clear_auth_cookies(response: Response) -> None:
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(
+    request: Request,
     payload: RegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> User:
+    await _enforce_rate_limit("register", request, payload.email)
     existing = (await session.exec(select(User).where(User.email == payload.email))).first()
     if existing is not None:
         raise api_error(
@@ -76,10 +93,12 @@ async def register(
 
 @router.post("/login", response_model=UserRead)
 async def login(
+    request: Request,
     payload: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> User:
+    await _enforce_rate_limit("login", request, payload.email)
     user = (await session.exec(select(User).where(User.email == payload.email))).first()
     if user is None or not security.verify_password(payload.password, user.password_hash):
         raise api_error(
@@ -105,6 +124,7 @@ async def refresh(
     response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> User:
+    await _enforce_rate_limit("refresh", request)
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
         raise api_error(
@@ -114,7 +134,7 @@ async def refresh(
         )
 
     try:
-        user_id = security.decode_token(token, security.REFRESH_TOKEN_TYPE)
+        identity = security.decode_refresh_token(token)
     except security.TokenError:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,
@@ -122,7 +142,7 @@ async def refresh(
             "The refresh token is invalid or expired",
         )
 
-    user = await session.get(User, user_id)
+    user = await session.get(User, identity.user_id)
     if user is None or not user.is_active:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,
@@ -130,7 +150,7 @@ async def refresh(
             "The refresh token is invalid or expired",
         )
 
-    _set_auth_cookies(response, user.id)
+    _set_auth_cookies(response, user.id, identity.session_started_at)
     return user
 
 

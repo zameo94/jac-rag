@@ -6,7 +6,7 @@ from app.database import async_session_factory
 from app.models import Document, Tenant
 from app.schemas.document import DocumentStatus
 from app.services import storage
-from app.services.rag import embeddings, vector_store
+from app.services.rag import bm25, embeddings, vector_store
 from app.services.rag.chunker import ChunkingConfig, ChunkMetadata, chunk_document
 from app.services.rag.language import detect_language
 from app.services.rag.normalize import normalize_document
@@ -101,7 +101,7 @@ async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
 
     language = detect_language(document_ir.text)
     texts = [chunk.text for chunk in chunks]
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     metadatas = [_metadata_payload(chunk.metadata) for chunk in chunks]
 
     await vector_store.delete_document_chunks(qdrant_client, tenant_id, document_id)
@@ -114,6 +114,7 @@ async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
         vectors,
         metadatas=metadatas,
     )
+    bm25.invalidate(tenant_id)
 
     async with session_factory() as session:
         document = await session.get(Document, document_id)

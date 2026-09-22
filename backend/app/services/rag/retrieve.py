@@ -16,13 +16,13 @@ async def retrieve_chunks(
 ) -> list[RetrievedChunk]:
     settings = get_settings()
     limit = top_k or settings.retrieval_top_k
-    vector = embeddings.embed_query(query)
+    vector = await embeddings.embed_query(query)
     dense = await vector_store.search_chunks(client, tenant_id, vector, limit)
     if not settings.hybrid_enabled:
         return dense
 
-    corpus = await bm25.load_corpus(client, tenant_id)
-    lexical = bm25.search(corpus, query, limit)
+    index = await bm25.get_lexical_index(client, tenant_id)
+    lexical = bm25.search_index(index, query, limit) if index is not None else []
     return bm25.reciprocal_rank_fusion(dense, lexical, limit=limit, k=settings.rrf_k)
 
 

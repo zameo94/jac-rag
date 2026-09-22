@@ -8,7 +8,10 @@ distinguishing term is a rare one (e.g. "febbraio 22").
 
 from __future__ import annotations
 
+import asyncio
 import re
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 
 from qdrant_client import AsyncQdrantClient
@@ -18,6 +21,8 @@ from app.services.rag.vector_store import RetrievedChunk, collection_name
 
 TOKEN_RE = re.compile(r"[0-9a-zàèéìòùáíóú]+")
 SCROLL_PAGE = 1000
+MAX_CACHED_TENANTS = 16
+CACHE_REVALIDATE_SECONDS = 30
 
 STOPWORDS = frozenset(
     {
@@ -83,10 +88,97 @@ async def load_corpus(client: AsyncQdrantClient, tenant_id: int) -> list[CorpusC
 def search(
     corpus: list[CorpusChunk], query: str, top_k: int
 ) -> list[tuple[CorpusChunk, float]]:
+    """Build a BM25 index and search it (reference path, one-shot)."""
     if not corpus:
         return []
-    tokenized = [tokenize(chunk.text) for chunk in corpus]
-    bm25 = BM25Okapi(tokenized)
+    bm25 = _build_bm25(corpus)
+    return _rank(bm25, corpus, query, top_k)
+
+
+@dataclass
+class LexicalIndex:
+    """Cached BM25 index for one tenant, valid for ``points_count`` points."""
+
+    points_count: int
+    corpus: list[CorpusChunk]
+    bm25: BM25Okapi
+    validated_at: float
+
+
+_cache: OrderedDict[int, LexicalIndex] = OrderedDict()
+_build_lock = asyncio.Lock()
+
+
+def invalidate(tenant_id: int) -> None:
+    """Drop a tenant's cached index after its collection changed."""
+    _cache.pop(tenant_id, None)
+
+
+def _fresh(entry: LexicalIndex) -> bool:
+    if CACHE_REVALIDATE_SECONDS <= 0:
+        return False
+    return time.monotonic() - entry.validated_at < CACHE_REVALIDATE_SECONDS
+
+
+async def get_lexical_index(
+    client: AsyncQdrantClient, tenant_id: int
+) -> LexicalIndex | None:
+    """Return the tenant's BM25 index, rebuilding it when the point count changed.
+
+    Writes invalidate the entry explicitly; the ``points_count`` check runs at
+    most once per ``CACHE_REVALIDATE_SECONDS`` as a safety net, so the hot path
+    is a dict lookup instead of a Qdrant round-trip. The LRU caps the memory.
+    """
+    entry = _cache.get(tenant_id)
+    if entry is not None and _fresh(entry):
+        _cache.move_to_end(tenant_id)
+        return entry
+
+    async with _build_lock:
+        entry = _cache.get(tenant_id)
+        if entry is not None and _fresh(entry):
+            _cache.move_to_end(tenant_id)
+            return entry
+        return await _refresh_index(client, tenant_id)
+
+
+async def _refresh_index(
+    client: AsyncQdrantClient, tenant_id: int
+) -> LexicalIndex | None:
+    name = collection_name(tenant_id)
+    if not await client.collection_exists(name):
+        _cache.pop(tenant_id, None)
+        return None
+
+    points_count = (await client.count(name, exact=True)).count
+    entry = _cache.get(tenant_id)
+    if entry is not None and entry.points_count == points_count:
+        entry.validated_at = time.monotonic()
+        _cache.move_to_end(tenant_id)
+        return entry
+
+    corpus = await load_corpus(client, tenant_id)
+    bm25 = await asyncio.to_thread(_build_bm25, corpus)
+    index = LexicalIndex(
+        points_count=points_count,
+        corpus=corpus,
+        bm25=bm25,
+        validated_at=time.monotonic(),
+    )
+    _cache[tenant_id] = index
+    _cache.move_to_end(tenant_id)
+    while len(_cache) > MAX_CACHED_TENANTS:
+        _cache.popitem(last=False)
+    return index
+
+
+def _build_bm25(corpus: list[CorpusChunk]) -> BM25Okapi:
+    return BM25Okapi([tokenize(chunk.text) for chunk in corpus])
+
+
+def _rank(
+    bm25: BM25Okapi, corpus: list[CorpusChunk], query: str, top_k: int
+) -> list[tuple[CorpusChunk, float]]:
     scores = bm25.get_scores(tokenize(query))
     ranked = sorted(range(len(corpus)), key=lambda index: scores[index], reverse=True)
     results: list[tuple[CorpusChunk, float]] = []
@@ -95,6 +187,15 @@ def search(
             break
         results.append((corpus[index], float(scores[index])))
     return results
+
+
+def search_index(
+    index: LexicalIndex, query: str, top_k: int
+) -> list[tuple[CorpusChunk, float]]:
+    """Search a cached index without re-tokenizing the corpus."""
+    if not index.corpus:
+        return []
+    return _rank(index.bm25, index.corpus, query, top_k)
 
 
 def _key(chunk: RetrievedChunk) -> tuple[int, int]:
