@@ -35,9 +35,15 @@ def parse_events(text: str) -> list[tuple[str, dict]]:
 class StreamingProvider(LLMProvider):
     name = "ollama"
 
-    def __init__(self, pieces=("Ciao", " mondo"), fail_after: int | None = None) -> None:
+    def __init__(
+        self,
+        pieces=("Ciao", " mondo"),
+        fail_after: int | None = None,
+        internal_fail_after: int | None = None,
+    ) -> None:
         self.pieces = pieces
         self.fail_after = fail_after
+        self.internal_fail_after = internal_fail_after
         self.calls: list[list] = []
         self.closed = False
 
@@ -49,6 +55,8 @@ class StreamingProvider(LLMProvider):
         for index, piece in enumerate(self.pieces):
             if self.fail_after is not None and index >= self.fail_after:
                 raise LLMProviderError("LLM_UNAVAILABLE", "boom")
+            if self.internal_fail_after is not None and index >= self.internal_fail_after:
+                raise RuntimeError("internal boom")
             yield piece
 
     async def aclose(self) -> None:
@@ -82,7 +90,7 @@ async def create_tenant(client, headers, name: str = "Acme") -> int:
 
 
 async def index_texts(qdrant, tenant_id: int, texts) -> None:
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
         tenant_id,
@@ -173,6 +181,57 @@ async def test_stream_provider_error_mid_stream(
         messages = (await session.exec(select(Message).order_by(Message.id))).all()
     assert messages[-1].error_code == "LLM_UNAVAILABLE"
     assert messages[-1].content == "A"
+
+
+async def test_stream_internal_error_mid_stream(
+    client, qdrant, session_factory, monkeypatch
+):
+    headers = await register_and_login(client, "stream-internal@example.com")
+    tenant_id = await create_tenant(client, headers)
+    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    provider = StreamingProvider(pieces=("A", "B"), internal_fail_after=1)
+    patch_provider(monkeypatch, provider)
+
+    response = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        json={"message": QUERY},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    events = parse_events(response.text)
+    assert [name for name, _ in events] == ["sources", "token", "error"]
+    assert events[-1][1]["code"] == "STREAM_INTERNAL_ERROR"
+    assert provider.closed is True
+
+    async with session_factory() as session:
+        messages = (await session.exec(select(Message).order_by(Message.id))).all()
+    assert messages[-1].error_code == "STREAM_INTERNAL_ERROR"
+    assert messages[-1].content == "A"
+
+
+async def test_stream_internal_error_before_first_token_hides_details(
+    client, qdrant, session_factory, monkeypatch
+):
+    headers = await register_and_login(client, "stream-internal-early@example.com")
+    tenant_id = await create_tenant(client, headers)
+    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    provider = StreamingProvider(pieces=("A",), internal_fail_after=0)
+    patch_provider(monkeypatch, provider)
+
+    response = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        json={"message": QUERY},
+        headers=headers,
+    )
+
+    events = parse_events(response.text)
+    assert [name for name, _ in events] == ["sources", "error"]
+
+    async with session_factory() as session:
+        messages = (await session.exec(select(Message).order_by(Message.id))).all()
+    assert messages[-1].error_code == "STREAM_INTERNAL_ERROR"
+    assert messages[-1].content == "Unexpected error"
 
 
 async def test_stream_rejects_disabled_provider_before_stream(

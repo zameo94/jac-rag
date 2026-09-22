@@ -6,6 +6,10 @@ import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/lib/api-error";
 import { activeTenantStore } from "@/lib/active-tenant-store";
+import {
+  SESSION_IDLE_TIMEOUT_MS,
+  useSessionIdle,
+} from "@/lib/session-idle";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -73,6 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     router.push("/login");
   }, [router]);
+
+  useSessionIdle({
+    enabled: user !== null && SESSION_IDLE_TIMEOUT_MS > 0,
+    onIdle: logout,
+  });
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>

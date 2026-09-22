@@ -50,6 +50,13 @@
     "NO_PROVIDER_AVAILABLE": "No LLM provider is available.",
     "UNKNOWN_PROVIDER": "Unknown provider.",
     "INCOMPLETE_EXTERNAL_CONFIG": "The external provider needs base URL, model and API key.",
+    "LLM_UNAVAILABLE": "The model is unreachable. Try again.",
+    "LLM_HTTP_ERROR": "The model returned an error. Make sure it is running.",
+    "LLM_GENERATION_ERROR": "Something went wrong while generating the answer.",
+    "LLM_INVALID_RESPONSE": "The model returned an invalid response.",
+    "STREAM_INCOMPLETE": "The connection ended before the answer completed. Try again.",
+    "STREAM_INTERNAL_ERROR": "Something went wrong while generating the answer. Try again.",
+    "NETWORK_ERROR": "The connection with the server was interrupted.",
     "HTTP_ERROR": "Unexpected server error."
   },
   "auth": {
@@ -171,6 +178,7 @@
     "placeholder": "Ask a question about your documents...",
     "send": "Send",
     "sending": "Sending...",
+    "searching": "Searching your documents...",
     "empty": "Send a message to start.",
     "sources": "Sources",
     "comingSoon": "Coming soon"

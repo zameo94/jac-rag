@@ -92,7 +92,7 @@ async def prepare_chat(
         if not grounded:
             used: list[RetrievedChunk] = []
         elif settings.rerank_enabled:
-            used = rerank_chunks(message, chunks, top_k=settings.chat_context_k)
+            used = await rerank_chunks(message, chunks, top_k=settings.chat_context_k)
         else:
             used = chunks[: settings.chat_context_k]
         if settings.rerank_enabled and settings.rerank_mode == "on_demand":

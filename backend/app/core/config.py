@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     access_token_expire_minutes: int
     refresh_token_expire_days: int
+    session_idle_timeout_minutes: int
     invitation_expire_days: int
 
     storage_dir: str
@@ -62,6 +63,10 @@ class Settings(BaseSettings):
 
     visitor_token_expire_days: int
     widget_rate_limit_per_minute: int
+    auth_login_rate_limit_per_minute: int
+    auth_register_rate_limit_per_minute: int
+    auth_refresh_rate_limit_per_minute: int
+    auth_accept_rate_limit_per_minute: int
 
     ocr_enabled: bool
     ocr_dpi: int
@@ -88,6 +93,15 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @property
+    def auth_rate_limits(self) -> dict[str, int]:
+        return {
+            "login": self.auth_login_rate_limit_per_minute,
+            "register": self.auth_register_rate_limit_per_minute,
+            "refresh": self.auth_refresh_rate_limit_per_minute,
+            "accept": self.auth_accept_rate_limit_per_minute,
+        }
 
     @property
     def cors_origin_list(self) -> list[str]:

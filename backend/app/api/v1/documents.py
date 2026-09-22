@@ -2,7 +2,7 @@ import uuid
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,11 +15,12 @@ from app.models import Document, Membership
 from app.schemas.document import DocumentRead, DocumentStatus, DocumentStatusRead
 from app.schemas.membership import MembershipRole
 from app.services import storage
-from app.services.rag import vector_store
+from app.services.rag import bm25, vector_store
 from app.services.rag.parsers import resolve_mime
 from app.tasks.ingest import ingest_document
 
 router = APIRouter()
+UPLOAD_READ_CHUNK = 1024 * 1024
 
 
 @router.post(
@@ -29,6 +30,7 @@ router = APIRouter()
 )
 async def upload_document(
     tenant_id: int,
+    request: Request,
     file: UploadFile = File(...),
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
     session: AsyncSession = Depends(get_session),
@@ -43,29 +45,49 @@ async def upload_document(
             "Only PDF, DOCX, TXT and MD files are supported",
         )
 
-    content = await file.read()
-    if len(content) == 0:
+    declared = request.headers.get("content-length")
+    if declared:
+        try:
+            if int(declared) > settings.max_upload_bytes:
+                raise api_error(
+                    413,
+                    "FILE_TOO_LARGE",
+                    f"The file exceeds the maximum size of {settings.max_upload_mb} MB",
+                )
+        except ValueError:
+            pass
+
+    content = bytearray()
+    size = 0
+    while True:
+        part = await file.read(UPLOAD_READ_CHUNK)
+        if not part:
+            break
+        size += len(part)
+        if size > settings.max_upload_bytes:
+            raise api_error(
+                413,
+                "FILE_TOO_LARGE",
+                f"The file exceeds the maximum size of {settings.max_upload_mb} MB",
+            )
+        content.extend(part)
+
+    if size == 0:
         raise api_error(
             422,
             "EMPTY_FILE",
             "The uploaded file is empty",
         )
-    if len(content) > settings.max_upload_bytes:
-        raise api_error(
-            413,
-            "FILE_TOO_LARGE",
-            f"The file exceeds the maximum size of {settings.max_upload_mb} MB",
-        )
 
     stored_name = f"{uuid.uuid4().hex}{Path(file.filename or '').suffix.lower()}"
-    storage_path = storage.save_upload(tenant_id, stored_name, content)
+    storage_path = storage.save_upload(tenant_id, stored_name, bytes(content))
 
     document = Document(
         tenant_id=tenant_id,
         uploader_id=membership.user_id,
         filename=file.filename or stored_name,
         mime=mime,
-        size=len(content),
+        size=size,
         status=DocumentStatus.PENDING,
         storage_path=storage_path,
     )
@@ -162,6 +184,7 @@ async def delete_document(
     client = vector_store.get_qdrant_client()
     try:
         await vector_store.delete_document_chunks(client, tenant_id, document_id)
+        bm25.invalidate(tenant_id)
     finally:
         await client.close()
 

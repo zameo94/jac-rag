@@ -23,7 +23,6 @@ PARSERS: dict[str, DocumentParser] = {
 EXTENSION_MIME: dict[str, str] = {
     ".pdf": "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".doc": "application/msword",
     ".txt": "text/plain",
     ".md": "text/markdown",
 }

@@ -55,7 +55,7 @@ async def create_tenant(client, headers, name: str = "Acme") -> int:
 
 
 async def index_texts(qdrant, tenant_id: int, texts) -> None:
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
         tenant_id,
@@ -246,3 +246,30 @@ async def test_history_is_limited_by_setting(
         )
 
     assert len(provider.calls[-1]) == 2 + 2
+
+
+async def test_history_skips_failed_assistant_messages(
+    client, qdrant, session_factory, monkeypatch
+):
+    headers = await register_and_login(client, "history-skip-errors@example.com")
+    tenant_id = await create_tenant(client, headers)
+    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+
+    patch_provider(monkeypatch, FailingProvider())
+    first = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+    )
+    async with session_factory() as session:
+        conversation_id = (await session.exec(select(Conversation))).one().id
+
+    provider = FakeProvider()
+    patch_provider(monkeypatch, provider)
+    second = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat",
+        json={"message": QUERY, "conversation_id": conversation_id},
+        headers=headers,
+    )
+
+    assert first.status_code == 503
+    assert second.status_code == 200
+    assert [m.role.value for m in provider.calls[0]] == ["system", "user", "user"]

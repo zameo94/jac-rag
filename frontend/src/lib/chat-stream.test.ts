@@ -80,4 +80,59 @@ describe("streamChat", () => {
 
     await expect(streamChat(1, "hi", {})).rejects.toMatchObject({ status: 429 });
   });
+
+  it("rejects with STREAM_INCOMPLETE when the stream ends without done or error", async () => {
+    const onSources = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        streamResponse([
+          'event: sources\ndata: {"conversation_id":7,"grounded":true,"sources":[]}\n\n',
+        ]),
+      ),
+    );
+
+    await expect(
+      streamChat(1, "hi", { onSources }),
+    ).rejects.toMatchObject({ code: "STREAM_INCOMPLETE" });
+    expect(onSources).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves after an error event without requiring done", async () => {
+    const onError = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        streamResponse([
+          'event: sources\ndata: {"conversation_id":7,"grounded":true,"sources":[]}\n\n',
+          'event: error\ndata: {"code":"LLM_UNAVAILABLE","message":"down"}\n\n',
+        ]),
+      ),
+    );
+
+    await streamChat(1, "hi", { onError });
+
+    expect(onError).toHaveBeenCalledWith({ code: "LLM_UNAVAILABLE", message: "down" });
+  });
+
+  it("wraps a mid-stream read failure as NETWORK_ERROR", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("event: sources"));
+            controller.error(new Error("connection reset"));
+          },
+        }),
+      }),
+    );
+
+    await expect(streamChat(1, "hi", {})).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+    });
+  });
 });

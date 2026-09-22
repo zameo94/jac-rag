@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useTenant } from "@/features/tenants/TenantProvider";
+import { ApiError } from "@/lib/api-error";
 import { streamChat } from "@/lib/chat-stream";
 import type { ChatSource } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export function ChatPlayground() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const tenantId = activeTenant?.id ?? null;
@@ -48,6 +50,7 @@ export function ChatPlayground() {
     setMessage("");
     setError(null);
     setSending(true);
+    setSearching(true);
     setTurns((current) => [
       ...current,
       { role: "user", content: question },
@@ -57,16 +60,19 @@ export function ChatPlayground() {
     try {
       await streamChat(tenantId, question, {
         onSources: (payload) => {
+          setSearching(false);
           if (payload.conversation_id) setConversationId(payload.conversation_id);
           updateLast((turn) => ({ ...turn, sources: payload.sources }));
         },
         onToken: (text) => updateLast((turn) => ({ ...turn, content: turn.content + text })),
-        onError: (payload) => setError({ code: payload.code, message: payload.message }),
+        onError: (payload) =>
+          setError(new ApiError(0, { code: payload.code, message: payload.message })),
       }, resumeConversationId);
     } catch (err) {
       setError(err);
     } finally {
       setSending(false);
+      setSearching(false);
       dropEmptyAssistant();
     }
   }
@@ -75,6 +81,8 @@ export function ChatPlayground() {
     <section className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <ErrorMessage error={error} />
+
+      {searching && <p className="text-sm text-slate-500">{t("searching")}</p>}
 
       <div className="flex min-h-48 flex-col gap-3 rounded border border-slate-200 bg-white p-4">
         {turns.length === 0 ? (

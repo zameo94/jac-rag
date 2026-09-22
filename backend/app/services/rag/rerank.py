@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import gc
 
 from app.core.config import get_settings
 from app.services.rag.vector_store import RetrievedChunk
+
+_rerank_semaphore = asyncio.Semaphore(2)
 
 _reranker = None
 
@@ -30,16 +33,14 @@ def release_reranker() -> None:
     gc.collect()
 
 
-def rerank_chunks(
-    query: str, chunks: list[RetrievedChunk], *, top_k: int
+def _rerank_chunks_sync(
+    query: str, chunks: list[RetrievedChunk], top_k: int
 ) -> list[RetrievedChunk]:
     """Reorder candidates with a cross-encoder and keep the best ``top_k``.
 
     The reranker only reorders; the retrieved chunks keep their dense score so
     the relevance gate stays anchored to the dense similarity.
     """
-    if top_k <= 0 or not chunks:
-        return []
     reranker = get_reranker()
     scores = list(
         reranker.rerank(
@@ -50,3 +51,13 @@ def rerank_chunks(
     )
     ranked = sorted(zip(chunks, scores), key=lambda pair: pair[1], reverse=True)
     return [chunk for chunk, _ in ranked[:top_k]]
+
+
+async def rerank_chunks(
+    query: str, chunks: list[RetrievedChunk], *, top_k: int
+) -> list[RetrievedChunk]:
+    """Async wrapper; the cross-encoder runs in a worker thread."""
+    if top_k <= 0 or not chunks:
+        return []
+    async with _rerank_semaphore:
+        return await asyncio.to_thread(_rerank_chunks_sync, query, chunks, top_k)

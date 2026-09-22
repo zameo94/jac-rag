@@ -121,6 +121,20 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
 
 - User login: **email without verification** in MVP (`EMAIL_ENABLED=false`), JWT access +
   refresh. JWT carries only `user_id`.
+- **Session idle logout**: `SESSION_IDLE_TIMEOUT_MINUTES` (60). The refresh token carries
+  a `session_started_at` claim (preserved across refreshes) and is re-issued with a sliding
+  `exp = min(now + idle, session_started_at + REFRESH_TOKEN_EXPIRE_DAYS)`, so an inactive
+  CMS session dies `idle` after the last activity and never outlives the absolute ceiling
+  measured from the first login; the cookie `max_age` matches. `0` keeps the old fixed
+  lifetime. The CMS mirrors this with a client idle timer (`lib/session-idle.ts` in
+  `AuthProvider`) that logs out after `SESSION_IDLE_TIMEOUT_MINUTES` without user/API
+  activity; the setting is propagated through `next.config.ts`.
+- **Auth rate limits**: `AUTH_LOGIN/REGISTER/REFRESH/ACCEPT_RATE_LIMIT_PER_MINUTE` (0
+  disables), Redis fixed window keyed by client IP and (login/register) normalized email,
+  applied in `services/rate_limit.auth_allowed`. The client IP comes from `core.http.client_ip`,
+  which trusts the leftmost `X-Forwarded-For` (the CMS reaches the API through the Next.js
+  proxy); the API must only be reachable through that trusted proxy. All rate-limit checks
+  **fail open** on a `RedisError` (allow + log) so an outage never locks out users.
 - Onboarding is two-step: `register` creates only the user; then either
   `create tenant` (creator becomes `OWNER`) or `accept invitation`.
   `GET /api/v1/tenants/{id}/me` returns the caller's membership (role lookups in the
@@ -152,7 +166,8 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   credentialed, origin-restricted policy.
 - **Rate limit**: Redis fixed window per embed key (`WIDGET_RATE_LIMIT_PER_MINUTE`,
   `app/services/rate_limit.py`); `0` disables. Enforced on the chat POSTs **and** the
-  read routes (`/config`, `/conversations`, `/conversations/{id}`).
+  read routes (`/config`, `/conversations`, `/conversations/{id}`). Widget and auth
+  limits all **fail open** on `RedisError` (allow + log).
 - **SSE contract** (`POST .../chat/stream`, CMS and widget): `sources` (once, with
   `conversation_id` + `grounded` + `sources`), then `token`* (`{"text": ...}`), then
   `done` (`{"provider", "model", "grounded"}`); provider failures after the first byte
@@ -180,6 +195,11 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
 - Supported: **PDF + DOCX + Markdown + TXT**, behind a **parser registry**
   (`get_parser(mime)`); every parser returns the **Common Document IR**
   (`app/services/rag/ir.py`). Adding a format = one parser file, no chunker changes.
+  Legacy `.doc` (and `application/msword`) is **not** supported — rejected with
+  `UNSUPPORTED_FILE_TYPE`.
+- Uploads are read bounded: a `Content-Length` already above
+  `MAX_UPLOAD_MB` is rejected before the body, and the stream is read a chunk at a
+  time with an abort once the limit is exceeded (413 `FILE_TOO_LARGE`).
 - Pipeline: `parser -> Document IR -> normalize -> structure-aware chunk -> embed -> Qdrant`.
 - **The chunker never destroys reconstructed structure**: table rows and list items are
   atomic and are never split because of a size limit; oversized atomic units are kept
@@ -214,6 +234,9 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   migrate via `tenant_{id}__v2` + background reindex + atomic switch.
 - Verify the exact fastembed multilingual model availability/dimension before creating
   collections; do not assume.
+- **Never block the event loop**: `embed_texts`/`embed_query` and `rerank_chunks` are
+  async wrappers that run the ONNX work in a worker thread (`asyncio.to_thread`,
+  semaphore of 2). Only `release_reranker`/preload stay sync (startup/memory paths).
 
 ## RAG strategy (no LLM router)
 
@@ -234,6 +257,10 @@ message -> fastembed -> search Qdrant top-k
   For weak local models this matters more than routing.
 - Optional deterministic greeting/short-message handling may run before retrieval; never
   an LLM-based classifier.
+- The hybrid lexical index (BM25Okapi) is **cached per tenant** (`bm25.get_lexical_index`,
+  LRU capped at 16). Writes invalidate it (`bm25.invalidate`); the collection point count
+  is re-checked at most every `CACHE_REVALIDATE_SECONDS` (30) as a safety net, so the hot
+  path is a dict lookup and per-request re-tokenization is gone with identical ranking.
 - Agentic tool-calling (`search_documents`) is a future opt-in for capable providers,
   not the default.
 

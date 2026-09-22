@@ -61,11 +61,15 @@ async def resolve_conversation(
 async def load_history(
     session: AsyncSession, conversation_id: int, limit: int
 ) -> list[Message]:
+    """Load the last ``limit`` messages, skipping failed/garbage assistant turns."""
     if limit <= 0:
         return []
     statement = (
         select(Message)
-        .where(Message.conversation_id == conversation_id)
+        .where(
+            Message.conversation_id == conversation_id,
+            Message.error_code.is_(None),
+        )
         .order_by(Message.id.desc())
         .limit(limit)
     )
