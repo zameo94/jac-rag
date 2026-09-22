@@ -159,6 +159,7 @@
     "copied": "Copied",
     "snippet": "Embed snippet",
     "snippetHint": "Paste this code into the customer's site. Replace YOUR_EMBED_KEY with an active key.",
+    "snippetMissing": "Snippet unavailable: configure NEXT_PUBLIC_WIDGET_SCRIPT_URL.",
     "empty": "No keys.",
     "active": "Active",
     "inactive": "Revoked",
