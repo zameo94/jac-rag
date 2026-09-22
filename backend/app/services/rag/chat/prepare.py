@@ -59,6 +59,7 @@ async def prepare_chat(
     conversation_id: int | None = None,
     user: User | None = None,
     end_user_id: str | None = None,
+    locale_override: str | None = None,
 ) -> PreparedChat:
     """Resolve provider, context and conversation shared by JSON and SSE routes.
 
@@ -73,7 +74,7 @@ async def prepare_chat(
     else:
         capability = await resolve_tenant_provider(session, tenant.id)
         actor_user_id = None
-        locale = tenant.default_locale
+        locale = locale_override or tenant.default_locale
 
     model_override = await tenant_model_override(session, tenant.id)
     provider, model = await build_provider(
