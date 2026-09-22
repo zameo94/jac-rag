@@ -26,9 +26,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv(
     "NEXT_PUBLIC_WIDGET_SCRIPT_URL",
-    "https://cdn.example.com/embed-rag-chatbot.js",
+    "http://localhost:8080/embed-rag-chatbot.js",
   );
-  vi.stubEnv("NEXT_PUBLIC_WIDGET_API_URL", "https://api.example.com");
   apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "OWNER" });
   apiMock.apiKeys.list.mockResolvedValue([
     {
@@ -83,9 +82,21 @@ describe("EmbedKeysPanel", () => {
     const snippet = screen.getByText(/data-embed-key="YOUR_EMBED_KEY"/);
     expect(snippet).toBeInTheDocument();
     expect(snippet).toHaveTextContent(
-      'src="https://cdn.example.com/embed-rag-chatbot.js"',
+      'src="http://localhost:8080/embed-rag-chatbot.js"',
     );
-    expect(snippet).toHaveTextContent('data-api-url="https://api.example.com"');
+    expect(snippet).not.toHaveTextContent("data-api-url");
+  });
+
+  it("shows a hint instead of the snippet when the script url is not configured", async () => {
+    vi.stubEnv("NEXT_PUBLIC_WIDGET_SCRIPT_URL", "");
+
+    render(<EmbedKeysPanel />);
+
+    await waitFor(() => expect(screen.getByText("Widget")).toBeInTheDocument());
+
+    expect(screen.getByText("snippetMissing")).toBeInTheDocument();
+    expect(screen.queryByText(/data-embed-key=/)).not.toBeInTheDocument();
+    expect(screen.queryByText("copy")).not.toBeInTheDocument();
   });
 
   it("puts the created key into the embed snippet", async () => {
