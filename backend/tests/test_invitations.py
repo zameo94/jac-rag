@@ -275,3 +275,22 @@ async def test_invitation_is_tenant_scoped(client):
     assert response.status_code == 200
     assert response.json()["tenant_id"] == tenant_a["id"]
     assert response.json()["tenant_id"] != tenant_b["id"]
+
+
+async def test_accept_invitation_blocked_by_rate_limit(client, monkeypatch):
+    from app.api.v1 import invitations as invitations_module
+
+    async def denied(scope, ip, email=None):
+        return False
+
+    monkeypatch.setattr(invitations_module, "auth_allowed", denied)
+
+    owner = await register_and_login(client, "owner@example.com")
+    tenant = await create_tenant(client, owner)
+    token = (await invite(client, owner, tenant["id"], "newbie@example.com")).json()["token"]
+    newbie = await register_and_login(client, "newbie@example.com")
+
+    response = await client.post(f"{INVITATIONS_URL}/{token}/accept", headers=newbie)
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "RATE_LIMITED"

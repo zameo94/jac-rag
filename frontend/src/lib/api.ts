@@ -1,4 +1,5 @@
 import { ApiError } from "./api-error";
+import { touchSession } from "./session-idle";
 import type {
   ApiKey,
   ApiKeyCreated,
@@ -40,6 +41,7 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  touchSession();
   const headers: Record<string, string> = {};
   let body: BodyInit | undefined;
 

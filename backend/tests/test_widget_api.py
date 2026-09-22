@@ -99,7 +99,7 @@ async def open_session(client, embed_key: str) -> str:
 
 
 async def index_texts(qdrant, tenant_id: int, texts) -> None:
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
         tenant_id,

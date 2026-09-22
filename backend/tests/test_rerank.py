@@ -49,16 +49,25 @@ class OrderedProvider(FakeProvider):
         return await super().generate(messages, model=model, temperature=temperature)
 
 
-def test_rerank_orders_by_cross_encoder(monkeypatch):
+async def fake_rerank(query, chunks, *, top_k):
+    return chunks[:1]
+
+
+async def rerank_reorder(order: list[str], chunks):
+    order.append("rerank")
+    return chunks[:1]
+
+
+async def test_rerank_orders_by_cross_encoder(monkeypatch):
     monkeypatch.setattr(rerank_module, "get_reranker", lambda: FakeReranker())
     chunks = [chunk("short"), chunk("a much longer passage than the other")]
 
-    result = rerank_module.rerank_chunks("q", chunks, top_k=1)
+    result = await rerank_module.rerank_chunks("q", chunks, top_k=1)
 
     assert result[0].text == "a much longer passage than the other"
 
 
-def test_rerank_passes_configured_batch_size(monkeypatch):
+async def test_rerank_passes_configured_batch_size(monkeypatch):
     monkeypatch.setenv("RERANK_BATCH_SIZE", "7")
     get_settings.cache_clear()
     seen: dict[str, int] = {}
@@ -70,21 +79,21 @@ def test_rerank_passes_configured_batch_size(monkeypatch):
 
     monkeypatch.setattr(rerank_module, "get_reranker", lambda: RecordingReranker())
 
-    rerank_module.rerank_chunks("q", [chunk("a")], top_k=1)
+    await rerank_module.rerank_chunks("q", [chunk("a")], top_k=1)
 
     assert seen["batch_size"] == 7
 
 
-def test_rerank_empty_returns_empty(monkeypatch):
+async def test_rerank_empty_returns_empty(monkeypatch):
     monkeypatch.setattr(rerank_module, "get_reranker", lambda: FakeReranker())
 
-    assert rerank_module.rerank_chunks("q", [], top_k=5) == []
+    assert await rerank_module.rerank_chunks("q", [], top_k=5) == []
 
 
-def test_rerank_non_positive_top_k(monkeypatch):
+async def test_rerank_non_positive_top_k(monkeypatch):
     monkeypatch.setattr(rerank_module, "get_reranker", lambda: FakeReranker())
 
-    assert rerank_module.rerank_chunks("q", [chunk("a")], top_k=0) == []
+    assert await rerank_module.rerank_chunks("q", [chunk("a")], top_k=0) == []
 
 
 def test_preload_reranker_skips_when_disabled(monkeypatch):
@@ -178,7 +187,7 @@ async def create_tenant(client, headers) -> int:
 
 
 async def index_texts(qdrant, tenant_id: int, texts) -> None:
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
         tenant_id,
@@ -204,7 +213,7 @@ async def test_chat_uses_reranked_context(client, qdrant, monkeypatch):
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
         "app.services.rag.chat.prepare.rerank_chunks",
-        lambda query, chunks, *, top_k: chunks[:1],
+        fake_rerank,
     )
 
     response = await client.post(
@@ -234,7 +243,7 @@ async def test_chat_releases_reranker_before_generation(client, qdrant, monkeypa
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
         "app.services.rag.chat.prepare.rerank_chunks",
-        lambda query, chunks, *, top_k: order.append("rerank") or chunks[:1],
+        lambda query, chunks, *, top_k: rerank_reorder(order, chunks),
     )
     monkeypatch.setattr(
         "app.services.rag.chat.prepare.release_reranker",
@@ -267,7 +276,7 @@ async def test_chat_keeps_reranker_when_warmup(client, qdrant, monkeypatch):
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
     monkeypatch.setattr(
         "app.services.rag.chat.prepare.rerank_chunks",
-        lambda query, chunks, *, top_k: order.append("rerank") or chunks[:1],
+        lambda query, chunks, *, top_k: rerank_reorder(order, chunks),
     )
     monkeypatch.setattr(
         "app.services.rag.chat.prepare.release_reranker",

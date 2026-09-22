@@ -50,6 +50,13 @@
     "NO_PROVIDER_AVAILABLE": "Nessun provider LLM è disponibile.",
     "UNKNOWN_PROVIDER": "Provider sconosciuto.",
     "INCOMPLETE_EXTERNAL_CONFIG": "Per il provider esterno servono base URL, modello e API key.",
+    "LLM_UNAVAILABLE": "Il modello non è raggiungibile. Riprova.",
+    "LLM_HTTP_ERROR": "Il modello ha risposto con un errore. Verifica che sia in esecuzione.",
+    "LLM_GENERATION_ERROR": "Si è verificato un errore durante la generazione della risposta.",
+    "LLM_INVALID_RESPONSE": "Il modello ha restituito una risposta non valida.",
+    "STREAM_INCOMPLETE": "La connessione si è interrotta prima della fine della risposta. Riprova.",
+    "STREAM_INTERNAL_ERROR": "Si è verificato un errore durante la generazione della risposta. Riprova.",
+    "NETWORK_ERROR": "La connessione con il server si è interrotta.",
     "HTTP_ERROR": "Errore imprevisto dal server."
   },
   "auth": {
@@ -171,6 +178,7 @@
     "placeholder": "Fai una domanda sui tuoi documenti...",
     "send": "Invia",
     "sending": "Invio...",
+    "searching": "Ricerca nei documenti...",
     "empty": "Invia un messaggio per iniziare.",
     "sources": "Fonti",
     "comingSoon": "Presto disponibile"

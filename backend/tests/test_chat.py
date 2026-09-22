@@ -61,7 +61,7 @@ async def create_tenant(client, headers, name: str = "Acme") -> int:
 
 
 async def index_texts(qdrant, tenant_id: int, texts, document_id: int = 1, filename: str = "doc.md"):
-    vectors = embeddings.embed_texts(texts)
+    vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
         tenant_id,
