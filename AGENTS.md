@@ -362,6 +362,11 @@ message -> fastembed -> search Qdrant top-k
   rewrites it to `API_PROXY_TARGET` (server-side, from the root `.env`). Only that
   variable is propagated in `next.config.ts`, so host dev from `frontend/` needs no
   separate file. In Docker the target is `http://backend:8000`.
+- The CMS embed snippet needs `NEXT_PUBLIC_WIDGET_SCRIPT_URL` (where the built widget
+  bundle is hosted) and `NEXT_PUBLIC_WIDGET_API_URL` (absolute API base the widget calls
+  from the customer's site). `next.config.ts` forwards `NEXT_PUBLIC_*` from the root
+  `.env` for host dev; because Next inlines them at build time, Compose passes both to
+  the frontend image as **build args** (the `./frontend` context has no root `.env`).
 - **Fail-fast JWT**: when `ENVIRONMENT` is not a development value, the backend refuses
   to start if `JWT_SECRET` is the default or shorter than 32 characters.
 - `JWT_SECRET` rotation invalidates all issued tokens.
