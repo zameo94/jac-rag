@@ -385,3 +385,74 @@ async def test_widget_read_routes_are_rate_limited(client, session_factory, monk
     assert config.json()["code"] == "RATE_LIMITED"
     assert listed.status_code == 429
     assert fetched.status_code == 429
+
+
+async def test_widget_chat_honours_request_locale(
+    client, qdrant, session_factory, monkeypatch
+):
+    _, embed_key = await create_tenant_with_key(
+        client, session_factory, "localewidget@example.com"
+    )
+    patch_provider(monkeypatch, FakeProvider())
+    visitor_token = await open_session(client, embed_key)
+    headers = widget_headers(embed_key, visitor_token)
+
+    english = await client.post(
+        "/api/v1/widget/chat",
+        json={"message": QUERY, "locale": "en"},
+        headers=headers,
+    )
+    default = await client.post(
+        "/api/v1/widget/chat",
+        json={"message": QUERY},
+        headers=headers,
+    )
+
+    assert english.status_code == 200
+    assert english.json()["grounded"] is False
+    assert english.json()["answer"] == (
+        "I could not find this information in the available documents."
+    )
+    assert default.json()["answer"] == (
+        "Non ho trovato questa informazione nei documenti disponibili."
+    )
+
+
+async def test_widget_chat_stream_honours_request_locale(
+    client, qdrant, session_factory, monkeypatch
+):
+    _, embed_key = await create_tenant_with_key(
+        client, session_factory, "localestream@example.com"
+    )
+    patch_provider(monkeypatch, FakeProvider())
+    visitor_token = await open_session(client, embed_key)
+
+    response = await client.post(
+        "/api/v1/widget/chat/stream",
+        json={"message": QUERY, "locale": "en"},
+        headers=widget_headers(embed_key, visitor_token),
+    )
+
+    assert response.status_code == 200
+    events = parse_events(response.text)
+    assert [name for name, _ in events] == ["sources", "token", "done"]
+    assert events[1][1]["text"] == (
+        "I could not find this information in the available documents."
+    )
+
+
+async def test_widget_chat_rejects_unsupported_locale(
+    client, qdrant, session_factory
+):
+    _, embed_key = await create_tenant_with_key(
+        client, session_factory, "badlocale@example.com"
+    )
+    visitor_token = await open_session(client, embed_key)
+
+    response = await client.post(
+        "/api/v1/widget/chat",
+        json={"message": "ciao", "locale": "fr"},
+        headers=widget_headers(embed_key, visitor_token),
+    )
+
+    assert response.status_code == 422
