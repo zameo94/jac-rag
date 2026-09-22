@@ -293,7 +293,9 @@ message -> fastembed -> search Qdrant top-k
   `lib/chat-stream.ts`), conversations viewer for ADMIN/OWNER (`features/conversations`).
 - Module division mirrors medicines_manager: `features/<domain>/{components,hooks,services}`,
   `pages`/route groups, typed `lib/api.ts`. Next.js App Router instead of React Router.
-- The embeddable widget is a **separate repo**; the CMS only manages its keys/config.
+- The embeddable widget is a **separate repo**; the CMS only manages its keys/config
+  and shows the embed snippet. The widget is a static bundle served by its own nginx
+  image; the API URL is baked in there (`VITE_WIDGET_API_URL`), not configured here.
 
 ## Testing (mandatory)
 
@@ -362,11 +364,14 @@ message -> fastembed -> search Qdrant top-k
   rewrites it to `API_PROXY_TARGET` (server-side, from the root `.env`). Only that
   variable is propagated in `next.config.ts`, so host dev from `frontend/` needs no
   separate file. In Docker the target is `http://backend:8000`.
-- The CMS embed snippet needs `NEXT_PUBLIC_WIDGET_SCRIPT_URL` (where the built widget
-  bundle is hosted) and `NEXT_PUBLIC_WIDGET_API_URL` (absolute API base the widget calls
-  from the customer's site). `next.config.ts` forwards `NEXT_PUBLIC_*` from the root
-  `.env` for host dev; because Next inlines them at build time, Compose passes both to
-  the frontend image as **build args** (the `./frontend` context has no root `.env`).
+- The CMS embed snippet uses `NEXT_PUBLIC_WIDGET_SCRIPT_URL` (public URL of the widget
+  bundle, served by the embed-rag-chatbot nginx image). It is **optional**: the CMS
+  starts without it and the embed-keys panel shows a hint instead of the snippet. The
+  API URL is baked into the widget bundle (`VITE_WIDGET_API_URL` in that repo), so the
+  snippet is only script URL + embed key. `next.config.ts` forwards `NEXT_PUBLIC_*` from
+  the root `.env` for host dev; Compose passes the value to the frontend image as an
+  optional **build arg** (the `./frontend` context has no root `.env`), so changing it
+  needs a rebuild.
 - **Fail-fast JWT**: when `ENVIRONMENT` is not a development value, the backend refuses
   to start if `JWT_SECRET` is the default or shorter than 32 characters.
 - `JWT_SECRET` rotation invalidates all issued tokens.

@@ -159,6 +159,7 @@
     "copied": "Copiato",
     "snippet": "Snippet di incorporamento",
     "snippetHint": "Incolla questo codice nel sito del cliente. Sostituisci YOUR_EMBED_KEY con una chiave attiva.",
+    "snippetMissing": "Snippet non disponibile: configura NEXT_PUBLIC_WIDGET_SCRIPT_URL.",
     "empty": "Nessuna chiave.",
     "active": "Attiva",
     "inactive": "Revocata",
