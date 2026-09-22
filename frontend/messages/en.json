@@ -157,6 +157,8 @@
     "createdHint": "Copy this key: it will not be shown again.",
     "copy": "Copy",
     "copied": "Copied",
+    "snippet": "Embed snippet",
+    "snippetHint": "Paste this code into the customer's site. Replace YOUR_EMBED_KEY with an active key.",
     "empty": "No keys.",
     "active": "Active",
     "inactive": "Revoked",

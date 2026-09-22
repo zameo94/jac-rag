@@ -7,6 +7,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 import { useTenant } from "@/features/tenants/TenantProvider";
 import { api } from "@/lib/api";
 import type { ApiKey, MembershipRole } from "@/lib/types";
+import { EMBED_KEY_PLACEHOLDER, widgetSnippet } from "@/lib/widget-embed";
 
 export function EmbedKeysPanel() {
   const t = useTranslations("embedKeys");
@@ -17,6 +18,7 @@ export function EmbedKeysPanel() {
   const [name, setName] = useState("");
   const [created, setCreated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [snippetCopied, setSnippetCopied] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const tenantId = activeTenant?.id ?? null;
@@ -75,6 +77,17 @@ export function EmbedKeysPanel() {
     }
   }
 
+  async function copySnippet() {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setSnippetCopied(true);
+    } catch {
+      setError({ code: "CLIPBOARD_UNAVAILABLE", message: "Clipboard not available" });
+    }
+  }
+
+  const snippet = widgetSnippet(created ?? EMBED_KEY_PLACEHOLDER);
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">{t("title")}</h2>
@@ -116,6 +129,23 @@ export function EmbedKeysPanel() {
             </div>
           </div>
         )}
+
+        <div className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3">
+          <p className="font-medium">{t("snippet")}</p>
+          <p className="text-xs text-slate-600">{t("snippetHint")}</p>
+          <div className="flex items-start gap-2">
+            <pre className="flex-1 overflow-x-auto rounded bg-white px-2 py-1 text-xs">
+              {snippet}
+            </pre>
+            <button
+              type="button"
+              onClick={copySnippet}
+              className="rounded border border-slate-300 px-2 py-1"
+            >
+              {snippetCopied ? t("copied") : t("copy")}
+            </button>
+          </div>
+        </div>
 
         {keys.length === 0 ? (
           <p className="text-slate-500">{t("empty")}</p>

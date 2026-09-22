@@ -157,6 +157,8 @@
     "createdHint": "Copia questa chiave: non sarà più visibile.",
     "copy": "Copia",
     "copied": "Copiato",
+    "snippet": "Snippet di incorporamento",
+    "snippetHint": "Incolla questo codice nel sito del cliente. Sostituisci YOUR_EMBED_KEY con una chiave attiva.",
     "empty": "Nessuna chiave.",
     "active": "Attiva",
     "inactive": "Revocata",
