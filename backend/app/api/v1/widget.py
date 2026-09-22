@@ -78,6 +78,7 @@ async def widget_chat(
             message=payload.message,
             conversation_id=payload.conversation_id,
             end_user_id=visitor.subject,
+            locale_override=payload.locale,
         )
     except LLMProviderError as exc:
         raise provider_error(exc)
@@ -125,6 +126,7 @@ async def widget_chat_stream(
                 message=payload.message,
                 conversation_id=payload.conversation_id,
                 end_user_id=visitor.subject,
+                locale_override=payload.locale,
             )
             await add_message(
                 session,
