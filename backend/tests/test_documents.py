@@ -308,3 +308,15 @@ async def test_delete_unknown_document_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["code"] == "DOCUMENT_NOT_FOUND"
+
+
+async def test_upload_still_works_when_tenant_inactive(client, stub_ingestion):
+    owner = await register_and_login(client, "inactive-docs@example.com")
+    tenant = await create_tenant(client, owner)
+    await client.patch(
+        f"{TENANTS_URL}/{tenant['id']}", json={"is_active": False}, headers=owner
+    )
+
+    response = await upload(client, owner, tenant["id"])
+
+    assert response.status_code == 201

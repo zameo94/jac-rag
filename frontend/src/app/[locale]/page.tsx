@@ -1,6 +1,6 @@
 import { setRequestLocale } from "next-intl/server";
 
-import { HomeView } from "@/features/home/HomeView";
+import { redirect } from "@/i18n/navigation";
 
 export default async function IndexPage({
   params,
@@ -10,5 +10,5 @@ export default async function IndexPage({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  return <HomeView />;
+  redirect({ href: "/dashboard", locale });
 }

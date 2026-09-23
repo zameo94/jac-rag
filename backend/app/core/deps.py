@@ -132,6 +132,15 @@ def require_role(*roles: MembershipRole):
     return dependency
 
 
+def ensure_tenant_active(tenant: Tenant) -> None:
+    if not tenant.is_active:
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "TENANT_INACTIVE",
+            "This workspace is disabled",
+        )
+
+
 async def resolve_embed_tenant(session: AsyncSession, embed_key: str | None) -> Tenant:
     if not embed_key:
         raise api_error(

@@ -36,10 +36,13 @@ describe("stripLocale", () => {
 });
 
 describe("isPublicPath", () => {
-  it("treats auth and onboarding paths as public", () => {
+  it("treats auth paths as public", () => {
     expect(isPublicPath("/login")).toBe(true);
     expect(isPublicPath("/register")).toBe(true);
-    expect(isPublicPath("/onboarding")).toBe(true);
+  });
+
+  it("treats the onboarding path as protected", () => {
+    expect(isPublicPath("/onboarding")).toBe(false);
   });
 
   it("treats nested public paths as public", () => {

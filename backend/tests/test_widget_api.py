@@ -7,7 +7,7 @@ from sqlmodel import select
 from app.api.v1 import chat as chat_module
 from app.core import security
 from app.main import app
-from app.models import ApiKey, Conversation, Message
+from app.models import ApiKey, Conversation, Message, Tenant
 from app.services.llm import LLMProvider, LLMResponse
 from app.services.rag import embeddings, vector_store
 from tests.helpers import register_and_login, user_id_for
@@ -126,6 +126,7 @@ async def test_widget_config_returns_tenant_info(client, session_factory):
     assert body["tenant_name"] == "cfg"
     assert body["answer_mode"] == "strict"
     assert body["default_locale"]
+    assert body["is_active"] is True
 
     missing = await client.get("/api/v1/widget/config")
     assert missing.status_code == 401
@@ -161,6 +162,30 @@ async def test_widget_chat_persists_conversation_for_visitor(
     assert conversation.user_id is None
     assert conversation.end_user_id is not None
     assert [m.role.value for m in messages] == ["user", "assistant"]
+
+
+async def test_widget_chat_is_blocked_when_tenant_inactive(
+    client, qdrant, session_factory, monkeypatch
+):
+    tenant_id, embed_key = await create_tenant_with_key(
+        client, session_factory, "inactive@example.com"
+    )
+    patch_provider(monkeypatch, FakeProvider())
+    visitor_token = await open_session(client, embed_key)
+    async with session_factory() as session:
+        tenant = await session.get(Tenant, tenant_id)
+        tenant.is_active = False
+        session.add(tenant)
+        await session.commit()
+
+    response = await client.post(
+        "/api/v1/widget/chat",
+        json={"message": QUERY},
+        headers=widget_headers(embed_key, visitor_token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "TENANT_INACTIVE"
 
 
 async def test_widget_chat_requires_visitor_token(client, qdrant, session_factory):

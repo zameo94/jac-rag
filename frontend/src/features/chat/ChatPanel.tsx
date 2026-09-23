@@ -15,8 +15,8 @@ interface Turn {
   sources?: ChatSource[];
 }
 
-export function ChatPlayground() {
-  const t = useTranslations("playground");
+export function ChatPanel() {
+  const t = useTranslations("chat");
   const { activeTenant } = useTenant();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [message, setMessage] = useState("");
@@ -58,16 +58,22 @@ export function ChatPlayground() {
     ]);
 
     try {
-      await streamChat(tenantId, question, {
-        onSources: (payload) => {
-          setSearching(false);
-          if (payload.conversation_id) setConversationId(payload.conversation_id);
-          updateLast((turn) => ({ ...turn, sources: payload.sources }));
+      await streamChat(
+        tenantId,
+        question,
+        {
+          onSources: (payload) => {
+            setSearching(false);
+            if (payload.conversation_id) setConversationId(payload.conversation_id);
+            updateLast((turn) => ({ ...turn, sources: payload.sources }));
+          },
+          onToken: (text) =>
+            updateLast((turn) => ({ ...turn, content: turn.content + text })),
+          onError: (payload) =>
+            setError(new ApiError(0, { code: payload.code, message: payload.message })),
         },
-        onToken: (text) => updateLast((turn) => ({ ...turn, content: turn.content + text })),
-        onError: (payload) =>
-          setError(new ApiError(0, { code: payload.code, message: payload.message })),
-      }, resumeConversationId);
+        resumeConversationId,
+      );
     } catch (err) {
       setError(err);
     } finally {
