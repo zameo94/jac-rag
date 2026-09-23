@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
 import type {
   LLMConfig,
@@ -16,7 +16,7 @@ import type {
 
 export function LlmSettingsPanel() {
   const t = useTranslations("settings");
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const { user } = useAuth();
   const [config, setConfig] = useState<LLMConfig | null>(null);
   const [settings, setSettings] = useState<LLMSettings | null>(null);
@@ -29,24 +29,24 @@ export function LlmSettingsPanel() {
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState(false);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
   const isAdmin = role === "OWNER" || role === "ADMIN";
   const hasStoredKey = settings?.external_configured ?? false;
   const editableKey = unlockKey || !hasStoredKey;
 
   const load = useCallback(async () => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      const configuration = await api.llm.config(tenantId);
+      const configuration = await api.llm.config(workspaceId);
       setConfig(configuration);
       setError(null);
 
-      const members = await api.members.list(tenantId);
+      const members = await api.members.list(workspaceId);
       const me = members.find((member) => member.user_id === user?.id);
       setRole(me?.role ?? null);
 
       if (me && (me.role === "OWNER" || me.role === "ADMIN")) {
-        const current = await api.llm.settings(tenantId);
+        const current = await api.llm.settings(workspaceId);
         setSettings(current);
         setAllowed(current.allowed_providers);
         setBaseUrl(current.external_base_url ?? "");
@@ -55,22 +55,22 @@ export function LlmSettingsPanel() {
     } catch (err) {
       setError(err);
     }
-  }, [tenantId, user?.id]);
+  }, [workspaceId, user?.id]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (!tenantId || !config) return null;
+  if (!workspaceId || !config) return null;
 
   const available = config.providers.filter(
     (provider) => provider.enabled && config.allowed_providers.includes(provider.id),
   );
 
   async function selectProvider(providerId: string) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      await api.llm.selectProvider(tenantId, providerId);
+      await api.llm.selectProvider(workspaceId, providerId);
       setConfig((current) =>
         current ? { ...current, selected_provider: providerId } : current,
       );
@@ -88,7 +88,7 @@ export function LlmSettingsPanel() {
   }
 
   async function save() {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     setSaving(true);
     try {
       const body: LLMSettingsUpdate = { allowed_providers: allowed };
@@ -99,7 +99,7 @@ export function LlmSettingsPanel() {
       if (apiKey) {
         body.external_api_key = apiKey;
       }
-      const updated = await api.llm.updateSettings(tenantId, body);
+      const updated = await api.llm.updateSettings(workspaceId, body);
       setSettings(updated);
       setApiKey("");
       setUnlockKey(false);

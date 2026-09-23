@@ -20,7 +20,7 @@ CHAT_PATH = "/chat/completions"
 class OpenAIProvider(LLMProvider):
     """OpenAI-compatible chat provider (OpenAI, OpenRouter, OpenCode, vLLM...).
 
-    The tenant configures ``base_url``, ``api_key`` and ``model``; a request uses
+    The workspace configures ``base_url``, ``api_key`` and ``model``; a request uses
     exactly this provider, with no cross-provider fallback.
     """
 

@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/lib/api-error";
-import { activeTenantStore } from "@/lib/active-tenant-store";
+import { activeWorkspaceStore } from "@/lib/active-workspace-store";
 import {
   SESSION_IDLE_TIMEOUT_MS,
   useSessionIdle,
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore: cookies are cleared client-side by the redirect below
     }
-    activeTenantStore.clear();
+    activeWorkspaceStore.clear();
     setUser(null);
     router.push("/login");
   }, [router]);

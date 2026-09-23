@@ -3,7 +3,7 @@ import logging
 from app.core.config import get_settings
 from app.core.tkq import broker
 from app.database import async_session_factory
-from app.models import Document, Tenant
+from app.models import Document, Workspace
 from app.schemas.document import DocumentStatus
 from app.services import storage
 from app.services.rag import bm25, embeddings, vector_store
@@ -64,12 +64,12 @@ async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
         await session.commit()
         await session.refresh(document)
 
-        tenant_id = document.tenant_id
+        workspace_id = document.workspace_id
         filename = document.filename
         storage_path = document.storage_path
         mime = document.mime
-        tenant = await session.get(Tenant, tenant_id)
-        languages = (tenant.default_locale,) if tenant else None
+        workspace = await session.get(Workspace, workspace_id)
+        languages = (workspace.default_locale,) if workspace else None
 
     try:
         content = storage.read_file(storage_path)
@@ -104,17 +104,17 @@ async def run_ingestion(document_id, session_factory, qdrant_client) -> str:
     vectors = await embeddings.embed_texts(texts)
     metadatas = [_metadata_payload(chunk.metadata) for chunk in chunks]
 
-    await vector_store.delete_document_chunks(qdrant_client, tenant_id, document_id)
+    await vector_store.delete_document_chunks(qdrant_client, workspace_id, document_id)
     await vector_store.upsert_chunks(
         qdrant_client,
-        tenant_id,
+        workspace_id,
         document_id,
         filename,
         [(chunk.index, chunk.text) for chunk in chunks],
         vectors,
         metadatas=metadatas,
     )
-    bm25.invalidate(tenant_id)
+    bm25.invalidate(workspace_id)
 
     async with session_factory() as session:
         document = await session.get(Document, document_id)

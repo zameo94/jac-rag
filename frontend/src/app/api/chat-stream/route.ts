@@ -14,15 +14,15 @@ const FORWARDED_REQUEST_HEADERS = [
 ];
 
 export async function POST(request: NextRequest): Promise<Response> {
-  const tenantId = request.nextUrl.searchParams.get("tenantId");
-  if (!tenantId) {
+  const workspaceId = request.nextUrl.searchParams.get("workspaceId");
+  if (!workspaceId) {
     return Response.json(
-      { code: "VALIDATION_ERROR", message: "tenantId is required" },
+      { code: "VALIDATION_ERROR", message: "workspaceId is required" },
       { status: 422 },
     );
   }
 
-  const target = `${API_PROXY_TARGET}/api/v1/tenants/${encodeURIComponent(tenantId)}/chat/stream`;
+  const target = `${API_PROXY_TARGET}/api/v1/workspaces/${encodeURIComponent(workspaceId)}/chat/stream`;
 
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {

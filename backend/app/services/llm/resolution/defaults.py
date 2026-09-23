@@ -5,7 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.schemas.setting import SettingScope
 from app.services.llm.base import LLMProviderError
 from app.services.llm.resolution.capability import default_provider_id
-from app.services.llm.resolution.tenant import LLM_SETTING_TYPE
+from app.services.llm.resolution.workspace import LLM_SETTING_TYPE
 from app.services.settings import get_value
 
 GLOBAL_DEFAULT_PROVIDER_KEY = "default_provider"

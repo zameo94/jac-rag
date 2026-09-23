@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.core.config import get_settings
-from app.models import Membership, Tenant
+from app.models import Membership, Workspace
 from app.schemas.membership import MembershipRole
 from app.schemas.setting import SettingScope
 from app.services.crypto import CryptoError, decrypt, encrypt
@@ -13,7 +13,7 @@ from app.services.llm.resolution.capability import is_provider_available
 from app.services.llm.resolution.external import external_config, set_external_config
 from app.services.llm.factory import build_provider
 from app.services.llm.providers.openai import OpenAIProvider
-from app.services.llm.resolution.tenant import LLM_SETTING_TYPE
+from app.services.llm.resolution.workspace import LLM_SETTING_TYPE
 from app.services.settings import get_value
 from tests.helpers import register_and_login, user_id_for
 
@@ -22,13 +22,13 @@ def message(text: str = "hi") -> LLMMessage:
     return LLMMessage(role=LLMRole.USER, content=text)
 
 
-async def create_tenant_row(session_factory, slug: str = "acme") -> int:
+async def create_workspace_row(session_factory, slug: str = "acme") -> int:
     async with session_factory() as session:
-        tenant = Tenant(name="Acme", slug=slug)
-        session.add(tenant)
+        workspace = Workspace(name="Acme", slug=slug)
+        session.add(workspace)
         await session.commit()
-        await session.refresh(tenant)
-        return tenant.id
+        await session.refresh(workspace)
+        return workspace.id
 
 
 def make_provider(handler, model: str = "gpt-x") -> OpenAIProvider:
@@ -188,12 +188,12 @@ def test_external_provider_enabled_by_flag(monkeypatch):
 
 
 async def test_external_config_is_encrypted_at_rest(session_factory):
-    tenant_id = await create_tenant_row(session_factory)
+    workspace_id = await create_workspace_row(session_factory)
 
     async with session_factory() as session:
         await set_external_config(
             session,
-            tenant_id,
+            workspace_id,
             base_url="https://api.test/v1",
             model="gpt-x",
             api_key="sk-secret",
@@ -201,11 +201,11 @@ async def test_external_config_is_encrypted_at_rest(session_factory):
         await session.commit()
 
     async with session_factory() as session:
-        config = await external_config(session, tenant_id)
+        config = await external_config(session, workspace_id)
         stored = await get_value(
             session,
-            SettingScope.TENANT,
-            tenant_id,
+            SettingScope.WORKSPACE,
+            workspace_id,
             LLM_SETTING_TYPE,
             "external_api_key",
         )
@@ -218,43 +218,43 @@ async def test_external_config_is_encrypted_at_rest(session_factory):
 
 
 async def test_external_config_none_when_incomplete(session_factory):
-    tenant_id = await create_tenant_row(session_factory)
+    workspace_id = await create_workspace_row(session_factory)
 
     async with session_factory() as session:
-        assert await external_config(session, tenant_id) is None
+        assert await external_config(session, workspace_id) is None
 
 
 async def test_build_provider_ollama(session_factory):
-    tenant_id = await create_tenant_row(session_factory)
+    workspace_id = await create_workspace_row(session_factory)
 
     async with session_factory() as session:
-        provider, model = await build_provider(session, tenant_id, "ollama")
+        provider, model = await build_provider(session, workspace_id, "ollama")
 
     assert provider.name == "ollama"
     assert model
 
 
 async def test_build_provider_external_requires_config(session_factory):
-    tenant_id = await create_tenant_row(session_factory)
+    workspace_id = await create_workspace_row(session_factory)
 
     async with session_factory() as session:
         with pytest.raises(LLMProviderError) as error:
-            await build_provider(session, tenant_id, "external_api")
+            await build_provider(session, workspace_id, "external_api")
 
     assert error.value.code == "PROVIDER_NOT_CONFIGURED"
 
 
 async def test_build_provider_external_with_config(session_factory):
-    tenant_id = await create_tenant_row(session_factory)
+    workspace_id = await create_workspace_row(session_factory)
 
     async with session_factory() as session:
         await set_external_config(
-            session, tenant_id, base_url="https://api.test/v1", model="gpt-x", api_key="sk"
+            session, workspace_id, base_url="https://api.test/v1", model="gpt-x", api_key="sk"
         )
         await session.commit()
 
     async with session_factory() as session:
-        provider, model = await build_provider(session, tenant_id, "external_api")
+        provider, model = await build_provider(session, workspace_id, "external_api")
 
     assert isinstance(provider, OpenAIProvider)
     assert model == "gpt-x"
@@ -265,9 +265,9 @@ async def test_build_provider_external_with_config(session_factory):
 # --------------------------------------------------------------------------- #
 
 
-async def create_tenant(client, headers, name="Acme") -> int:
+async def create_workspace(client, headers, name="Acme") -> int:
     response = await client.post(
-        "/api/v1/tenants", json={"name": name}, headers=headers
+        "/api/v1/workspaces", json={"name": name}, headers=headers
     )
     assert response.status_code == 201
     return response.json()["id"]
@@ -275,10 +275,10 @@ async def create_tenant(client, headers, name="Acme") -> int:
 
 async def test_llm_config_lists_providers(client):
     headers = await register_and_login(client, "llm-config@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
 
     response = await client.get(
-        f"/api/v1/tenants/{tenant_id}/llm/config", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/llm/config", headers=headers
     )
 
     assert response.status_code == 200
@@ -292,19 +292,19 @@ async def test_llm_config_lists_providers(client):
 
 async def test_llm_settings_requires_admin(client, session_factory):
     owner = await register_and_login(client, "llm-owner@example.com")
-    tenant_id = await create_tenant(client, owner)
+    workspace_id = await create_workspace(client, owner)
     member = await register_and_login(client, "llm-member@example.com")
     member_id = await user_id_for(client, member)
     async with session_factory() as session:
         session.add(
             Membership(
-                user_id=member_id, tenant_id=tenant_id, role=MembershipRole.MEMBER
+                user_id=member_id, workspace_id=workspace_id, role=MembershipRole.MEMBER
             )
         )
         await session.commit()
 
     response = await client.get(
-        f"/api/v1/tenants/{tenant_id}/llm/settings", headers=member
+        f"/api/v1/workspaces/{workspace_id}/llm/settings", headers=member
     )
 
     assert response.status_code == 403
@@ -314,10 +314,10 @@ async def test_llm_settings_update_and_read(client, monkeypatch):
     monkeypatch.setenv("EXTERNAL_API_ENABLED", "true")
     get_settings.cache_clear()
     headers = await register_and_login(client, "llm-admin@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
 
     response = await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/settings",
+        f"/api/v1/workspaces/{workspace_id}/llm/settings",
         json={
             "allowed_providers": ["ollama", "external_api"],
             "external_base_url": "https://api.test/v1",
@@ -335,7 +335,7 @@ async def test_llm_settings_update_and_read(client, monkeypatch):
     assert "external_api_key" not in body
 
     config = await client.get(
-        f"/api/v1/tenants/{tenant_id}/llm/config", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/llm/config", headers=headers
     )
     external = next(
         provider
@@ -350,10 +350,10 @@ async def test_llm_settings_partial_external_is_rejected(client, monkeypatch):
     monkeypatch.setenv("EXTERNAL_API_ENABLED", "true")
     get_settings.cache_clear()
     headers = await register_and_login(client, "llm-partial@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
 
     response = await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/settings",
+        f"/api/v1/workspaces/{workspace_id}/llm/settings",
         json={"external_base_url": "https://api.test/v1"},
         headers=headers,
     )
@@ -366,9 +366,9 @@ async def test_llm_settings_update_keeps_existing_key(client, monkeypatch):
     monkeypatch.setenv("EXTERNAL_API_ENABLED", "true")
     get_settings.cache_clear()
     headers = await register_and_login(client, "llm-keepkey@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/settings",
+        f"/api/v1/workspaces/{workspace_id}/llm/settings",
         json={
             "external_base_url": "https://api.test/v1",
             "external_model": "gpt-x",
@@ -378,7 +378,7 @@ async def test_llm_settings_update_keeps_existing_key(client, monkeypatch):
     )
 
     response = await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/settings",
+        f"/api/v1/workspaces/{workspace_id}/llm/settings",
         json={
             "external_base_url": "https://api.test/v2",
             "external_model": "gpt-y",
@@ -397,9 +397,9 @@ async def test_select_provider_endpoint(client, session_factory, monkeypatch):
     monkeypatch.setenv("EXTERNAL_API_ENABLED", "true")
     get_settings.cache_clear()
     headers = await register_and_login(client, "llm-select@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/settings",
+        f"/api/v1/workspaces/{workspace_id}/llm/settings",
         json={
             "allowed_providers": ["ollama", "external_api"],
             "external_base_url": "https://api.test/v1",
@@ -410,7 +410,7 @@ async def test_select_provider_endpoint(client, session_factory, monkeypatch):
     )
 
     response = await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/provider",
+        f"/api/v1/workspaces/{workspace_id}/llm/provider",
         json={"provider_id": "external_api"},
         headers=headers,
     )
@@ -421,10 +421,10 @@ async def test_select_provider_endpoint(client, session_factory, monkeypatch):
 
 async def test_select_unavailable_provider_is_rejected(client):
     headers = await register_and_login(client, "llm-unavail@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
 
     response = await client.put(
-        f"/api/v1/tenants/{tenant_id}/llm/provider",
+        f"/api/v1/workspaces/{workspace_id}/llm/provider",
         json={"provider_id": "external_api"},
         headers=headers,
     )

@@ -9,7 +9,7 @@ export interface User {
   is_active: boolean;
 }
 
-export interface Tenant {
+export interface Workspace {
   id: number;
   name: string;
   slug: string;
@@ -18,7 +18,7 @@ export interface Tenant {
   is_active: boolean;
 }
 
-export interface TenantUpdate {
+export interface WorkspaceUpdate {
   name?: string;
   slug?: string;
   default_locale?: string;
@@ -29,7 +29,7 @@ export interface TenantUpdate {
 export interface Member {
   id: number;
   user_id: number;
-  tenant_id: number;
+  workspace_id: number;
   role: MembershipRole;
   email: string;
   created_at: string;
@@ -37,7 +37,7 @@ export interface Member {
 
 export interface InvitationCreated {
   id: number;
-  tenant_id: number;
+  workspace_id: number;
   email: string;
   role: MembershipRole;
   token: string;
@@ -47,13 +47,13 @@ export interface InvitationCreated {
 export interface Membership {
   id: number;
   user_id: number;
-  tenant_id: number;
+  workspace_id: number;
   role: MembershipRole;
 }
 
 export interface Document {
   id: number;
-  tenant_id: number;
+  workspace_id: number;
   uploader_id: number;
   filename: string;
   mime: string;
@@ -107,7 +107,7 @@ export interface ProviderSelection {
 
 export interface ApiKey {
   id: number;
-  tenant_id: number;
+  workspace_id: number;
   name: string;
   prefix: string;
   is_active: boolean;
@@ -152,7 +152,7 @@ export interface ChatMessage {
 
 export interface Conversation {
   id: number;
-  tenant_id: number;
+  workspace_id: number;
   user_id: number | null;
   end_user_id: string | null;
   title: string | null;

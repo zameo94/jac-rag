@@ -5,24 +5,24 @@ import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { PencilIcon, TrashIcon } from "@/components/icons";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
-import type { MembershipRole, Tenant } from "@/lib/types";
+import type { MembershipRole, Workspace } from "@/lib/types";
 
 export function WorkspacesPanel() {
-  const t = useTranslations("tenants");
-  const { tenants, activeTenant, selectTenant, refreshTenants } = useTenant();
+  const t = useTranslations("workspaces");
+  const { workspaces, activeWorkspace, selectWorkspace, refreshWorkspaces } = useWorkspace();
   const [roles, setRoles] = useState<Record<number, MembershipRole>>({});
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     let mounted = true;
     void Promise.all(
-      tenants.map((tenant) =>
+      workspaces.map((workspace) =>
         api.members
-          .me(tenant.id)
-          .then((membership) => [tenant.id, membership.role] as const)
+          .me(workspace.id)
+          .then((membership) => [workspace.id, membership.role] as const)
           .catch(() => null),
       ),
     ).then((entries) => {
@@ -36,19 +36,19 @@ export function WorkspacesPanel() {
     return () => {
       mounted = false;
     };
-  }, [tenants]);
+  }, [workspaces]);
 
-  function canManage(tenantId: number): boolean {
-    const role = roles[tenantId];
+  function canManage(workspaceId: number): boolean {
+    const role = roles[workspaceId];
     return role === "OWNER" || role === "ADMIN";
   }
 
-  async function handleDelete(tenant: Tenant) {
+  async function handleDelete(workspace: Workspace) {
     if (!window.confirm(t("deleteConfirm"))) return;
     setError(null);
     try {
-      await api.tenants.remove(tenant.id);
-      await refreshTenants();
+      await api.workspaces.remove(workspace.id);
+      await refreshWorkspaces();
     } catch (err) {
       setError(err);
     }
@@ -68,54 +68,54 @@ export function WorkspacesPanel() {
 
       <ErrorMessage error={error} />
 
-      {tenants.length === 0 ? (
+      {workspaces.length === 0 ? (
         <p className="text-slate-500">{t("empty")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {tenants.map((tenant) => (
+          {workspaces.map((workspace) => (
             <li
-              key={tenant.id}
+              key={workspace.id}
               className="flex items-center justify-between rounded border border-slate-200 bg-white p-3 text-sm"
             >
               <span>
-                <span className="font-medium">{tenant.name}</span>{" "}
-                <span className="text-slate-400">{tenant.slug}</span>
+                <span className="font-medium">{workspace.name}</span>{" "}
+                <span className="text-slate-400">{workspace.slug}</span>
               </span>
               <span className="flex items-center gap-3">
                 <span
                   className={`rounded px-2 py-0.5 text-xs ${
-                    tenant.is_active
+                    workspace.is_active
                       ? "bg-emerald-50 text-emerald-700"
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {tenant.is_active ? t("active") : t("inactive")}
+                  {workspace.is_active ? t("active") : t("inactive")}
                 </span>
-                {tenant.id === activeTenant?.id ? (
+                {workspace.id === activeWorkspace?.id ? (
                   <span className="text-xs text-slate-500">{t("current")}</span>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => selectTenant(tenant.id)}
+                    onClick={() => selectWorkspace(workspace.id)}
                     className="text-xs underline"
                   >
                     {t("switch")}
                   </button>
                 )}
-                {canManage(tenant.id) && (
+                {canManage(workspace.id) && (
                   <Link
-                    href={`/dashboard/workspaces/${tenant.id}/edit`}
+                    href={`/dashboard/workspaces/${workspace.id}/edit`}
                     aria-label={t("edit")}
                     className="text-slate-500 hover:text-slate-900"
                   >
                     <PencilIcon className="h-4 w-4" />
                   </Link>
                 )}
-                {roles[tenant.id] === "OWNER" && (
+                {roles[workspace.id] === "OWNER" && (
                   <button
                     type="button"
                     aria-label={t("delete")}
-                    onClick={() => handleDelete(tenant)}
+                    onClick={() => handleDelete(workspace)}
                     className="text-red-600 hover:text-red-700"
                   >
                     <TrashIcon className="h-4 w-4" />

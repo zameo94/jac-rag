@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.schemas.tenant import AnswerMode
+from app.schemas.workspace import AnswerMode
 from app.services.llm.base import LLMMessage, LLMRole
 from app.services.rag.vector_store import RetrievedChunk
 

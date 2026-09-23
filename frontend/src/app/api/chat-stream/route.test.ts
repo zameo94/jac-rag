@@ -7,10 +7,10 @@ import { POST } from "@/app/api/chat-stream/route";
 
 const BASE = process.env.API_PROXY_TARGET ?? "http://localhost:8000";
 
-function makeRequest(tenantId = "7"): NextRequest {
+function makeRequest(workspaceId = "7"): NextRequest {
   return {
     method: "POST",
-    nextUrl: new URL(`http://localhost:3000/api/chat-stream?tenantId=${tenantId}`),
+    nextUrl: new URL(`http://localhost:3000/api/chat-stream?workspaceId=${workspaceId}`),
     headers: new Headers({
       "content-type": "application/json",
       cookie: "jacrag_access=token",
@@ -46,7 +46,7 @@ describe("chat stream route handler", () => {
     const response = await POST(makeRequest());
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(`${BASE}/api/v1/tenants/7/chat/stream`);
+    expect(url).toBe(`${BASE}/api/v1/workspaces/7/chat/stream`);
     const sent = init.headers as Headers;
     expect(sent.get("cookie")).toBe("jacrag_access=token");
     expect(sent.get("content-type")).toBe("application/json");
@@ -61,7 +61,7 @@ describe("chat stream route handler", () => {
     expect(await response.text()).toBe(sse);
   });
 
-  it("rejects a request without tenantId", async () => {
+  it("rejects a request without workspaceId", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -75,7 +75,7 @@ describe("chat stream route handler", () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
       code: "VALIDATION_ERROR",
-      message: "tenantId is required",
+      message: "workspaceId is required",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

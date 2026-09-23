@@ -5,8 +5,8 @@ vi.mock("next-intl", () => ({
   useTranslations: () => Object.assign((key: string) => key, { has: () => true }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ activeTenant: { id: 1 } }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ activeWorkspace: { id: 1 } }),
 }));
 
 vi.mock("@/lib/chat-stream", () => ({ streamChat: vi.fn() }));
@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe("ChatPanel", () => {
   it("streams tokens into the assistant turn", async () => {
-    streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
+    streamMock.mockImplementation(async (_workspaceId, _message, handlers) => {
       handlers.onSources?.({
         conversation_id: 7,
         grounded: true,
@@ -53,7 +53,7 @@ describe("ChatPanel", () => {
   });
 
   it("shows a stream error", async () => {
-    streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
+    streamMock.mockImplementation(async (_workspaceId, _message, handlers) => {
       handlers.onError?.({ code: "LLM_UNAVAILABLE", message: "down" });
     });
 
@@ -90,7 +90,7 @@ describe("ChatPanel", () => {
   it("shows a searching hint before the sources arrive", async () => {
     let receivedHandlers: ChatStreamHandlers | undefined;
     streamMock.mockImplementation(
-      (_tenantId, _message, handlers) =>
+      (_workspaceId, _message, handlers) =>
         new Promise<never>(() => {
           receivedHandlers = handlers;
         }),
@@ -112,7 +112,7 @@ describe("ChatPanel", () => {
 
   it("reuses the conversation id on subsequent sends", async () => {
     let calls = 0;
-    streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
+    streamMock.mockImplementation(async (_workspaceId, _message, handlers) => {
       calls += 1;
       if (calls === 1) {
         handlers.onSources?.({ conversation_id: 7, grounded: true, sources: [] });

@@ -5,29 +5,29 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { BackLink } from "@/components/BackLink";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { EditWorkspaceForm } from "@/features/workspaces/EditWorkspaceForm";
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import type { MembershipRole } from "@/lib/types";
 
 export default function EditWorkspacePage() {
-  const t = useTranslations("tenants");
+  const t = useTranslations("workspaces");
   const params = useParams();
   const router = useRouter();
-  const { tenants, loading } = useTenant();
+  const { workspaces, loading } = useWorkspace();
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [roleChecked, setRoleChecked] = useState(false);
 
   const id = Number(params.id);
-  const tenant = tenants.find((item) => item.id === id) ?? null;
+  const workspace = workspaces.find((item) => item.id === id) ?? null;
 
   useEffect(() => {
-    if (!tenant) return;
+    if (!workspace) return;
     let mounted = true;
     setRoleChecked(false);
     void api.members
-      .me(tenant.id)
+      .me(workspace.id)
       .then((membership) => {
         if (mounted) setRole(membership.role);
       })
@@ -40,13 +40,13 @@ export default function EditWorkspacePage() {
     return () => {
       mounted = false;
     };
-  }, [tenant]);
+  }, [workspace]);
 
-  if (loading || (tenant !== null && !roleChecked)) {
+  if (loading || (workspace !== null && !roleChecked)) {
     return <p className="text-slate-500">...</p>;
   }
 
-  if (!tenant) {
+  if (!workspace) {
     return (
       <section className="mx-auto max-w-md">
         <BackLink href="/dashboard/workspaces" />
@@ -70,7 +70,7 @@ export default function EditWorkspacePage() {
       <h1 className="mt-3 text-2xl font-semibold">{t("editTitle")}</h1>
       <div className="mt-4">
         <EditWorkspaceForm
-          tenant={tenant}
+          workspace={workspace}
           onDone={() => router.push("/dashboard/workspaces")}
         />
       </div>

@@ -4,18 +4,18 @@ from app.models import Membership
 from app.schemas.membership import MembershipRole
 from tests.helpers import register_and_login as auth_headers, user_id_for
 
-TENANTS_URL = "/api/v1/tenants"
+WORKSPACES_URL = "/api/v1/workspaces"
 
 
-async def create_tenant(client, headers, **overrides):
+async def create_workspace(client, headers, **overrides):
     payload = {"name": "Acme", "slug": "acme", **overrides}
-    return await client.post(TENANTS_URL, json=payload, headers=headers)
+    return await client.post(WORKSPACES_URL, json=payload, headers=headers)
 
 
-async def test_create_tenant_returns_created_tenant(client):
+async def test_create_workspace_returns_created_workspace(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await create_tenant(client, headers)
+    response = await create_workspace(client, headers)
 
     assert response.status_code == 201
     body = response.json()
@@ -27,33 +27,33 @@ async def test_create_tenant_returns_created_tenant(client):
     assert isinstance(body["id"], int)
 
 
-async def test_create_tenant_derives_slug_from_name(client):
+async def test_create_workspace_derives_slug_from_name(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await create_tenant(client, headers, name="My Company!!", slug=None)
+    response = await create_workspace(client, headers, name="My Company!!", slug=None)
 
     assert response.status_code == 201
     assert response.json()["slug"] == "my-company"
 
 
-async def test_create_tenant_accepts_assistive_mode(client):
+async def test_create_workspace_accepts_assistive_mode(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await create_tenant(client, headers, answer_mode="assistive")
+    response = await create_workspace(client, headers, answer_mode="assistive")
 
     assert response.status_code == 201
     assert response.json()["answer_mode"] == "assistive"
 
 
-async def test_create_tenant_assigns_owner_membership(client, session_factory):
+async def test_create_workspace_assigns_owner_membership(client, session_factory):
     headers = await auth_headers(client, "owner@example.com")
     me = await client.get("/api/v1/auth/me", headers=headers)
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     async with session_factory() as session:
         membership = (
             await session.exec(
-                select(Membership).where(Membership.tenant_id == tenant.json()["id"])
+                select(Membership).where(Membership.workspace_id == workspace.json()["id"])
             )
         ).one()
 
@@ -61,111 +61,111 @@ async def test_create_tenant_assigns_owner_membership(client, session_factory):
     assert membership.role is MembershipRole.OWNER
 
 
-async def test_create_tenant_rejects_duplicate_slug(client):
+async def test_create_workspace_rejects_duplicate_slug(client):
     headers = await auth_headers(client, "owner@example.com")
-    await create_tenant(client, headers)
+    await create_workspace(client, headers)
 
-    response = await create_tenant(client, headers)
+    response = await create_workspace(client, headers)
 
     assert response.status_code == 409
     assert response.json()["code"] == "SLUG_ALREADY_TAKEN"
 
 
-async def test_create_tenant_requires_authentication(client):
-    response = await client.post(TENANTS_URL, json={"name": "Acme", "slug": "acme"})
+async def test_create_workspace_requires_authentication(client):
+    response = await client.post(WORKSPACES_URL, json={"name": "Acme", "slug": "acme"})
 
     assert response.status_code == 401
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def test_create_tenant_rejects_blank_name(client):
+async def test_create_workspace_rejects_blank_name(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await create_tenant(client, headers, name="   ")
+    response = await create_workspace(client, headers, name="   ")
 
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
 
 
-async def test_list_tenants_returns_only_memberships(client):
+async def test_list_workspaces_returns_only_memberships(client):
     owner_headers = await auth_headers(client, "owner@example.com")
     other_headers = await auth_headers(client, "other@example.com")
 
-    await create_tenant(client, owner_headers, name="Acme", slug="acme")
-    await create_tenant(client, owner_headers, name="Beta", slug="beta")
-    await create_tenant(client, other_headers, name="Gamma", slug="gamma")
+    await create_workspace(client, owner_headers, name="Acme", slug="acme")
+    await create_workspace(client, owner_headers, name="Beta", slug="beta")
+    await create_workspace(client, other_headers, name="Gamma", slug="gamma")
 
-    owner_list = await client.get(TENANTS_URL, headers=owner_headers)
-    other_list = await client.get(TENANTS_URL, headers=other_headers)
+    owner_list = await client.get(WORKSPACES_URL, headers=owner_headers)
+    other_list = await client.get(WORKSPACES_URL, headers=other_headers)
 
-    assert [tenant["slug"] for tenant in owner_list.json()] == ["acme", "beta"]
-    assert [tenant["slug"] for tenant in other_list.json()] == ["gamma"]
+    assert [workspace["slug"] for workspace in owner_list.json()] == ["acme", "beta"]
+    assert [workspace["slug"] for workspace in other_list.json()] == ["gamma"]
 
 
-async def test_list_tenants_requires_authentication(client):
-    response = await client.get(TENANTS_URL)
+async def test_list_workspaces_requires_authentication(client):
+    response = await client.get(WORKSPACES_URL)
 
     assert response.status_code == 401
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def test_get_tenant_as_member(client):
+async def test_get_workspace_as_member(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
-    response = await client.get(f"{TENANTS_URL}/{tenant.json()['id']}", headers=headers)
+    response = await client.get(f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=headers)
 
     assert response.status_code == 200
     assert response.json()["slug"] == "acme"
 
 
-async def test_get_tenant_as_non_member_returns_403(client):
+async def test_get_workspace_as_non_member_returns_403(client):
     owner_headers = await auth_headers(client, "owner@example.com")
     other_headers = await auth_headers(client, "other@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
 
     response = await client.get(
-        f"{TENANTS_URL}/{tenant.json()['id']}", headers=other_headers
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=other_headers
     )
 
     assert response.status_code == 403
     assert response.json()["code"] == "NOT_A_MEMBER"
 
 
-async def test_get_tenant_not_found_returns_404(client):
+async def test_get_workspace_not_found_returns_404(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await client.get(f"{TENANTS_URL}/999999", headers=headers)
+    response = await client.get(f"{WORKSPACES_URL}/999999", headers=headers)
 
     assert response.status_code == 404
-    assert response.json()["code"] == "TENANT_NOT_FOUND"
+    assert response.json()["code"] == "WORKSPACE_NOT_FOUND"
 
 
-async def test_get_tenant_requires_authentication(client):
+async def test_get_workspace_requires_authentication(client):
     owner_headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     client.cookies.clear()
 
-    response = await client.get(f"{TENANTS_URL}/{tenant.json()['id']}")
+    response = await client.get(f"{WORKSPACES_URL}/{workspace.json()['id']}")
 
     assert response.status_code == 401
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def add_membership(session_factory, tenant_id, user_id, role):
+async def add_membership(session_factory, workspace_id, user_id, role):
     async with session_factory() as session:
         session.add(
-            Membership(user_id=user_id, tenant_id=tenant_id, role=role)
+            Membership(user_id=user_id, workspace_id=workspace_id, role=role)
         )
         await session.commit()
 
 
-async def test_update_tenant_as_owner(client):
+async def test_update_workspace_as_owner(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={
             "name": "Renamed",
             "slug": "renamed",
@@ -183,12 +183,12 @@ async def test_update_tenant_as_owner(client):
     assert body["answer_mode"] == "assistive"
 
 
-async def test_update_tenant_keeps_unsent_fields(client):
+async def test_update_workspace_keeps_unsent_fields(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"name": "Only name"},
         headers=headers,
     )
@@ -199,12 +199,12 @@ async def test_update_tenant_keeps_unsent_fields(client):
     assert response.json()["default_locale"] == "it"
 
 
-async def test_update_tenant_allows_keeping_own_slug(client):
+async def test_update_workspace_allows_keeping_own_slug(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"slug": "acme"},
         headers=headers,
     )
@@ -213,13 +213,13 @@ async def test_update_tenant_allows_keeping_own_slug(client):
     assert response.json()["slug"] == "acme"
 
 
-async def test_update_tenant_rejects_duplicate_slug(client):
+async def test_update_workspace_rejects_duplicate_slug(client):
     headers = await auth_headers(client, "owner@example.com")
-    await create_tenant(client, headers, name="Acme", slug="acme")
-    other = await create_tenant(client, headers, name="Beta", slug="beta")
+    await create_workspace(client, headers, name="Acme", slug="acme")
+    other = await create_workspace(client, headers, name="Beta", slug="beta")
 
     response = await client.patch(
-        f"{TENANTS_URL}/{other.json()['id']}",
+        f"{WORKSPACES_URL}/{other.json()['id']}",
         json={"slug": "acme"},
         headers=headers,
     )
@@ -228,12 +228,12 @@ async def test_update_tenant_rejects_duplicate_slug(client):
     assert response.json()["code"] == "SLUG_ALREADY_TAKEN"
 
 
-async def test_update_tenant_normalizes_slug(client):
+async def test_update_workspace_normalizes_slug(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"slug": "My New Slug!!"},
         headers=headers,
     )
@@ -242,12 +242,12 @@ async def test_update_tenant_normalizes_slug(client):
     assert response.json()["slug"] == "my-new-slug"
 
 
-async def test_update_tenant_rejects_invalid_slug(client):
+async def test_update_workspace_rejects_invalid_slug(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"slug": "!!!"},
         headers=headers,
     )
@@ -256,12 +256,12 @@ async def test_update_tenant_rejects_invalid_slug(client):
     assert response.json()["code"] == "VALIDATION_ERROR"
 
 
-async def test_update_tenant_rejects_blank_name(client):
+async def test_update_workspace_rejects_blank_name(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"name": "   "},
         headers=headers,
     )
@@ -269,17 +269,17 @@ async def test_update_tenant_rejects_blank_name(client):
     assert response.status_code == 422
 
 
-async def test_update_tenant_as_admin(client, session_factory):
+async def test_update_workspace_as_admin(client, session_factory):
     owner_headers = await auth_headers(client, "owner@example.com")
     admin_headers = await auth_headers(client, "admin@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     admin_id = await user_id_for(client, admin_headers)
     await add_membership(
-        session_factory, tenant.json()["id"], admin_id, MembershipRole.ADMIN
+        session_factory, workspace.json()["id"], admin_id, MembershipRole.ADMIN
     )
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"name": "By admin"},
         headers=admin_headers,
     )
@@ -288,17 +288,17 @@ async def test_update_tenant_as_admin(client, session_factory):
     assert response.json()["name"] == "By admin"
 
 
-async def test_update_tenant_as_member_is_forbidden(client, session_factory):
+async def test_update_workspace_as_member_is_forbidden(client, session_factory):
     owner_headers = await auth_headers(client, "owner@example.com")
     member_headers = await auth_headers(client, "member@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     member_id = await user_id_for(client, member_headers)
     await add_membership(
-        session_factory, tenant.json()["id"], member_id, MembershipRole.MEMBER
+        session_factory, workspace.json()["id"], member_id, MembershipRole.MEMBER
     )
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"name": "Nope"},
         headers=member_headers,
     )
@@ -307,13 +307,13 @@ async def test_update_tenant_as_member_is_forbidden(client, session_factory):
     assert response.json()["code"] == "INSUFFICIENT_ROLE"
 
 
-async def test_update_tenant_as_non_member_is_forbidden(client):
+async def test_update_workspace_as_non_member_is_forbidden(client):
     owner_headers = await auth_headers(client, "owner@example.com")
     other_headers = await auth_headers(client, "other@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"name": "Nope"},
         headers=other_headers,
     )
@@ -322,36 +322,36 @@ async def test_update_tenant_as_non_member_is_forbidden(client):
     assert response.json()["code"] == "NOT_A_MEMBER"
 
 
-async def test_update_tenant_requires_authentication(client):
+async def test_update_workspace_requires_authentication(client):
     owner_headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     client.cookies.clear()
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}", json={"name": "Nope"}
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", json={"name": "Nope"}
     )
 
     assert response.status_code == 401
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def test_update_tenant_not_found(client):
+async def test_update_workspace_not_found(client):
     headers = await auth_headers(client, "owner@example.com")
 
     response = await client.patch(
-        f"{TENANTS_URL}/999999", json={"name": "Nope"}, headers=headers
+        f"{WORKSPACES_URL}/999999", json={"name": "Nope"}, headers=headers
     )
 
     assert response.status_code == 404
-    assert response.json()["code"] == "TENANT_NOT_FOUND"
+    assert response.json()["code"] == "WORKSPACE_NOT_FOUND"
 
 
-async def test_update_tenant_can_deactivate(client):
+async def test_update_workspace_can_deactivate(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.patch(
-        f"{TENANTS_URL}/{tenant.json()['id']}",
+        f"{WORKSPACES_URL}/{workspace.json()['id']}",
         json={"is_active": False},
         headers=headers,
     )
@@ -360,98 +360,98 @@ async def test_update_tenant_can_deactivate(client):
     assert response.json()["is_active"] is False
 
 
-async def test_delete_tenant_as_owner(client):
+async def test_delete_workspace_as_owner(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
 
     response = await client.delete(
-        f"{TENANTS_URL}/{tenant.json()['id']}", headers=headers
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=headers
     )
 
     assert response.status_code == 204
-    after = await client.get(f"{TENANTS_URL}/{tenant.json()['id']}", headers=headers)
+    after = await client.get(f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=headers)
     assert after.status_code == 404
-    assert after.json()["code"] == "TENANT_NOT_FOUND"
+    assert after.json()["code"] == "WORKSPACE_NOT_FOUND"
 
 
-async def test_delete_tenant_cascades_memberships(client, session_factory):
+async def test_delete_workspace_cascades_memberships(client, session_factory):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
-    tenant_id = tenant.json()["id"]
+    workspace = await create_workspace(client, headers)
+    workspace_id = workspace.json()["id"]
 
-    await client.delete(f"{TENANTS_URL}/{tenant_id}", headers=headers)
+    await client.delete(f"{WORKSPACES_URL}/{workspace_id}", headers=headers)
 
     async with session_factory() as session:
         remaining = (
             await session.exec(
-                select(Membership).where(Membership.tenant_id == tenant_id)
+                select(Membership).where(Membership.workspace_id == workspace_id)
             )
         ).all()
     assert remaining == []
 
 
-async def test_delete_tenant_as_admin_is_forbidden(client, session_factory):
+async def test_delete_workspace_as_admin_is_forbidden(client, session_factory):
     owner_headers = await auth_headers(client, "owner@example.com")
     admin_headers = await auth_headers(client, "admin@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     admin_id = await user_id_for(client, admin_headers)
     await add_membership(
-        session_factory, tenant.json()["id"], admin_id, MembershipRole.ADMIN
+        session_factory, workspace.json()["id"], admin_id, MembershipRole.ADMIN
     )
 
     response = await client.delete(
-        f"{TENANTS_URL}/{tenant.json()['id']}", headers=admin_headers
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=admin_headers
     )
 
     assert response.status_code == 403
     assert response.json()["code"] == "INSUFFICIENT_ROLE"
 
 
-async def test_delete_tenant_as_member_is_forbidden(client, session_factory):
+async def test_delete_workspace_as_member_is_forbidden(client, session_factory):
     owner_headers = await auth_headers(client, "owner@example.com")
     member_headers = await auth_headers(client, "member@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
     member_id = await user_id_for(client, member_headers)
     await add_membership(
-        session_factory, tenant.json()["id"], member_id, MembershipRole.MEMBER
+        session_factory, workspace.json()["id"], member_id, MembershipRole.MEMBER
     )
 
     response = await client.delete(
-        f"{TENANTS_URL}/{tenant.json()['id']}", headers=member_headers
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=member_headers
     )
 
     assert response.status_code == 403
     assert response.json()["code"] == "INSUFFICIENT_ROLE"
 
 
-async def test_delete_tenant_as_non_member_is_forbidden(client):
+async def test_delete_workspace_as_non_member_is_forbidden(client):
     owner_headers = await auth_headers(client, "owner@example.com")
     other_headers = await auth_headers(client, "other@example.com")
-    tenant = await create_tenant(client, owner_headers)
+    workspace = await create_workspace(client, owner_headers)
 
     response = await client.delete(
-        f"{TENANTS_URL}/{tenant.json()['id']}", headers=other_headers
+        f"{WORKSPACES_URL}/{workspace.json()['id']}", headers=other_headers
     )
 
     assert response.status_code == 403
     assert response.json()["code"] == "NOT_A_MEMBER"
 
 
-async def test_delete_tenant_requires_authentication(client):
+async def test_delete_workspace_requires_authentication(client):
     headers = await auth_headers(client, "owner@example.com")
-    tenant = await create_tenant(client, headers)
+    workspace = await create_workspace(client, headers)
     client.cookies.clear()
 
-    response = await client.delete(f"{TENANTS_URL}/{tenant.json()['id']}")
+    response = await client.delete(f"{WORKSPACES_URL}/{workspace.json()['id']}")
 
     assert response.status_code == 401
     assert response.json()["code"] == "NOT_AUTHENTICATED"
 
 
-async def test_delete_tenant_not_found(client):
+async def test_delete_workspace_not_found(client):
     headers = await auth_headers(client, "owner@example.com")
 
-    response = await client.delete(f"{TENANTS_URL}/999999", headers=headers)
+    response = await client.delete(f"{WORKSPACES_URL}/999999", headers=headers)
 
     assert response.status_code == 404
-    assert response.json()["code"] == "TENANT_NOT_FOUND"
+    assert response.json()["code"] == "WORKSPACE_NOT_FOUND"

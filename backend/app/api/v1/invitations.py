@@ -11,7 +11,7 @@ from app.core.deps import get_current_user, require_role
 from app.core.errors import api_error
 from app.core.http import client_ip
 from app.database import get_session
-from app.models import Invitation, Membership, Tenant, User
+from app.models import Invitation, Membership, Workspace, User
 from app.schemas.invitation import InvitationCreate, InvitationCreated
 from app.schemas.membership import MembershipRead, MembershipRole
 from app.services.rate_limit import auth_allowed
@@ -21,12 +21,12 @@ settings = get_settings()
 
 
 @router.post(
-    "/tenants/{tenant_id}/invitations",
+    "/workspaces/{workspace_id}/invitations",
     response_model=InvitationCreated,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_invitation(
-    tenant_id: int,
+    workspace_id: int,
     payload: InvitationCreate,
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
     session: AsyncSession = Depends(get_session),
@@ -36,7 +36,7 @@ async def create_invitation(
         already_member = (
             await session.exec(
                 select(Membership).where(
-                    Membership.tenant_id == tenant_id,
+                    Membership.workspace_id == workspace_id,
                     Membership.user_id == invited_user.id,
                 )
             )
@@ -45,13 +45,13 @@ async def create_invitation(
             raise api_error(
                 status.HTTP_409_CONFLICT,
                 "ALREADY_A_MEMBER",
-                "This user is already a member of the tenant",
+                "This user is already a member of the workspace",
             )
 
     pending = (
         await session.exec(
             select(Invitation).where(
-                Invitation.tenant_id == tenant_id,
+                Invitation.workspace_id == workspace_id,
                 Invitation.email == payload.email,
                 Invitation.accepted_at.is_(None),
             )
@@ -66,7 +66,7 @@ async def create_invitation(
 
     token = security.generate_invitation_token()
     invitation = Invitation(
-        tenant_id=tenant_id,
+        workspace_id=workspace_id,
         email=payload.email,
         role=payload.role,
         token_hash=security.hash_token(token),
@@ -79,7 +79,7 @@ async def create_invitation(
 
     return InvitationCreated(
         id=invitation.id,
-        tenant_id=invitation.tenant_id,
+        workspace_id=invitation.workspace_id,
         email=invitation.email,
         role=invitation.role,
         token=token,
@@ -134,18 +134,18 @@ async def accept_invitation(
             "The invitation was issued to a different email address",
         )
 
-    tenant = await session.get(Tenant, invitation.tenant_id)
-    if tenant is None:
+    workspace = await session.get(Workspace, invitation.workspace_id)
+    if workspace is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
-            "TENANT_NOT_FOUND",
-            "Tenant not found",
+            "WORKSPACE_NOT_FOUND",
+            "Workspace not found",
         )
 
     existing_membership = (
         await session.exec(
             select(Membership).where(
-                Membership.tenant_id == invitation.tenant_id,
+                Membership.workspace_id == invitation.workspace_id,
                 Membership.user_id == current_user.id,
             )
         )
@@ -154,12 +154,12 @@ async def accept_invitation(
         raise api_error(
             status.HTTP_409_CONFLICT,
             "ALREADY_A_MEMBER",
-            "You are already a member of this tenant",
+            "You are already a member of this workspace",
         )
 
     membership = Membership(
         user_id=current_user.id,
-        tenant_id=invitation.tenant_id,
+        workspace_id=invitation.workspace_id,
         role=invitation.role,
     )
     session.add(membership)

@@ -146,7 +146,7 @@ async def test_ingestion_stores_full_metadata_payload(session_factory, qdrant):
     storage_path = storage.save_upload(1, "meta.md", content)
     async with session_factory() as session:
         document = DocumentModel(
-            tenant_id=1,
+            workspace_id=1,
             uploader_id=1,
             filename="meta.md",
             mime="text/markdown",
@@ -161,7 +161,7 @@ async def test_ingestion_stores_full_metadata_payload(session_factory, qdrant):
 
     await run_ingestion(document_id, session_factory, qdrant)
 
-    points, _ = await qdrant.scroll("tenant_1", limit=100, with_payload=True)
+    points, _ = await qdrant.scroll("workspace_1", limit=100, with_payload=True)
     row_points = [
         point
         for point in points

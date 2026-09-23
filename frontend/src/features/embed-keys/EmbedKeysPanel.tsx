@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
 import type { ApiKey, MembershipRole } from "@/lib/types";
 import { EMBED_KEY_PLACEHOLDER, widgetScriptUrl, widgetSnippet } from "@/lib/widget-embed";
@@ -12,7 +12,7 @@ import { EMBED_KEY_PLACEHOLDER, widgetScriptUrl, widgetSnippet } from "@/lib/wid
 export function EmbedKeysPanel() {
   const t = useTranslations("embedKeys");
   const common = useTranslations("common");
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [name, setName] = useState("");
@@ -21,33 +21,33 @@ export function EmbedKeysPanel() {
   const [snippetCopied, setSnippetCopied] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
   const isAdmin = role === "OWNER" || role === "ADMIN";
 
   const load = useCallback(async () => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      const membership = await api.members.me(tenantId);
+      const membership = await api.members.me(workspaceId);
       setRole(membership.role);
       if (membership.role === "OWNER" || membership.role === "ADMIN") {
-        setKeys(await api.apiKeys.list(tenantId));
+        setKeys(await api.apiKeys.list(workspaceId));
       }
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (!tenantId || !isAdmin) return null;
+  if (!workspaceId || !isAdmin) return null;
 
   async function create() {
-    if (!tenantId || !name.trim()) return;
+    if (!workspaceId || !name.trim()) return;
     try {
-      const key = await api.apiKeys.create(tenantId, name.trim());
+      const key = await api.apiKeys.create(workspaceId, name.trim());
       setCreated(key.key);
       setCopied(false);
       setName("");
@@ -58,9 +58,9 @@ export function EmbedKeysPanel() {
   }
 
   async function toggle(key: ApiKey) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      await api.apiKeys.setActive(tenantId, key.id, !key.is_active);
+      await api.apiKeys.setActive(workspaceId, key.id, !key.is_active);
       await load();
     } catch (err) {
       setError(err);

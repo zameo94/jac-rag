@@ -9,7 +9,7 @@ from sqlmodel import Field, SQLModel
 
 class SettingScope(str, Enum):
     GLOBAL = "global"
-    TENANT = "tenant"
+    WORKSPACE = "workspace"
     USER = "user"
 
 
@@ -38,7 +38,7 @@ class SettingBase(SQLModel):
                 raise ValueError("Global settings must have scope_id = null")
             return None
         if value is None or value < 1:
-            raise ValueError("Tenant and user settings require scope_id >= 1")
+            raise ValueError("Workspace and user settings require scope_id >= 1")
         return value
 
     @field_validator("type", "key", mode="before")

@@ -1,1 +1,1 @@
-"""LLM policy/resolution: which provider a tenant and a user may use."""
+"""LLM policy/resolution: which provider a workspace and a user may use."""

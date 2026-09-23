@@ -39,7 +39,7 @@ class InvitationCreate(SQLModel):
 
 class InvitationCreated(SQLModel):
     id: int
-    tenant_id: int
+    workspace_id: int
     email: EmailStr
     role: MembershipRole
     token: str

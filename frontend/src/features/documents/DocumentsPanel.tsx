@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
 import type { Document } from "@/lib/types";
 
@@ -17,30 +17,30 @@ function formatSize(bytes: number): string {
 export function DocumentsPanel() {
   const t = useTranslations("documents");
   const common = useTranslations("common");
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
 
   const load = useCallback(async () => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      setDocuments(await api.documents.list(tenantId));
+      setDocuments(await api.documents.list(workspaceId));
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     const hasPending = documents.some(
       (doc) => doc.status === "pending" || doc.status === "processing",
     );
@@ -49,15 +49,15 @@ export function DocumentsPanel() {
       void load();
     }, 2500);
     return () => clearInterval(timer);
-  }, [documents, tenantId, load]);
+  }, [documents, workspaceId, load]);
 
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file || !tenantId) return;
+    if (!file || !workspaceId) return;
     setUploading(true);
     setError(null);
     try {
-      const created = await api.documents.upload(tenantId, file);
+      const created = await api.documents.upload(workspaceId, file);
       setDocuments((current) => [created, ...current]);
     } catch (err) {
       setError(err);
@@ -68,17 +68,17 @@ export function DocumentsPanel() {
   }
 
   async function handleDelete(documentId: number) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     if (!window.confirm(common("confirmDelete"))) return;
     try {
-      await api.documents.remove(tenantId, documentId);
+      await api.documents.remove(workspaceId, documentId);
       setDocuments((current) => current.filter((doc) => doc.id !== documentId));
     } catch (err) {
       setError(err);
     }
   }
 
-  if (!tenantId) return null;
+  if (!workspaceId) return null;
 
   return (
     <section className="flex flex-col gap-6">
@@ -120,7 +120,7 @@ export function DocumentsPanel() {
               <tr key={doc.id} className="border-b border-slate-100">
                 <td className="py-2">
                   <a
-                    href={`/api/v1/tenants/${tenantId}/documents/${doc.id}/file`}
+                    href={`/api/v1/workspaces/${workspaceId}/documents/${doc.id}/file`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-slate-900 hover:underline"

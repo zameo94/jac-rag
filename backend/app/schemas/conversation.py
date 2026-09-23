@@ -18,7 +18,7 @@ class ConversationBase(SQLModel):
 
 class ConversationRead(ConversationBase):
     id: int
-    tenant_id: int
+    workspace_id: int
     user_id: Optional[int] = None
     end_user_id: Optional[str] = None
     created_at: datetime

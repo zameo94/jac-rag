@@ -20,7 +20,7 @@ def resolve_model(provider_id: str, override: str | None = None) -> str:
 
 
 def create_provider(provider_id: str, *, model: str | None = None) -> LLMProvider:
-    """Create a provider that needs no per-tenant configuration (Ollama)."""
+    """Create a provider that needs no per-workspace configuration (Ollama)."""
     settings = get_settings()
     if provider_id == OLLAMA_PROVIDER_NAME:
         return OllamaProvider(
@@ -28,13 +28,13 @@ def create_provider(provider_id: str, *, model: str | None = None) -> LLMProvide
         )
     raise LLMProviderError(
         "PROVIDER_NOT_CONFIGURED",
-        f"Provider '{provider_id}' requires tenant configuration",
+        f"Provider '{provider_id}' requires workspace configuration",
     )
 
 
 async def build_provider(
     session: AsyncSession,
-    tenant_id: int,
+    workspace_id: int,
     provider_id: str,
     model: str | None = None,
 ) -> tuple[LLMProvider, str]:
@@ -45,11 +45,11 @@ async def build_provider(
         return OllamaProvider(settings.ollama_base_url, resolved), resolved
 
     if provider_id == EXTERNAL_API_PROVIDER_NAME:
-        config = await external_config(session, tenant_id)
+        config = await external_config(session, workspace_id)
         if config is None:
             raise LLMProviderError(
                 "PROVIDER_NOT_CONFIGURED",
-                "External LLM is not configured for this tenant",
+                "External LLM is not configured for this workspace",
             )
         return OpenAIProvider(config.base_url, config.api_key, config.model), config.model
 

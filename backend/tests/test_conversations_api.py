@@ -9,18 +9,18 @@ from app.schemas.membership import MembershipRole
 from tests.helpers import register_and_login, user_id_for
 
 
-async def create_tenant(client, headers, name: str = "Acme") -> int:
-    response = await client.post("/api/v1/tenants", json={"name": name}, headers=headers)
+async def create_workspace(client, headers, name: str = "Acme") -> int:
+    response = await client.post("/api/v1/workspaces", json={"name": name}, headers=headers)
     assert response.status_code == 201
     return response.json()["id"]
 
 
 async def seed_conversation(
-    session_factory, tenant_id: int, user_id: int, *, title: str, minutes_ago: int = 0
+    session_factory, workspace_id: int, user_id: int, *, title: str, minutes_ago: int = 0
 ) -> int:
     async with session_factory() as session:
         conversation = Conversation(
-            tenant_id=tenant_id,
+            workspace_id=workspace_id,
             user_id=user_id,
             title=title,
             updated_at=utcnow() - timedelta(minutes=minutes_ago),
@@ -39,11 +39,11 @@ async def seed_conversation(
         return conversation.id
 
 
-async def add_member(session_factory, user_id: int, tenant_id: int) -> None:
+async def add_member(session_factory, user_id: int, workspace_id: int) -> None:
     async with session_factory() as session:
         session.add(
             Membership(
-                user_id=user_id, tenant_id=tenant_id, role=MembershipRole.MEMBER
+                user_id=user_id, workspace_id=workspace_id, role=MembershipRole.MEMBER
             )
         )
         await session.commit()
@@ -52,19 +52,19 @@ async def add_member(session_factory, user_id: int, tenant_id: int) -> None:
 async def test_list_and_get_conversation_for_owner(client, session_factory):
     headers = await register_and_login(client, "conv-owner@example.com")
     owner_id = await user_id_for(client, headers)
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     older = await seed_conversation(
-        session_factory, tenant_id, owner_id, title="Older", minutes_ago=10
+        session_factory, workspace_id, owner_id, title="Older", minutes_ago=10
     )
     newer = await seed_conversation(
-        session_factory, tenant_id, owner_id, title="Newer", minutes_ago=1
+        session_factory, workspace_id, owner_id, title="Newer", minutes_ago=1
     )
 
     listed = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations", headers=headers
     )
     detail = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations/{newer}", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations/{newer}", headers=headers
     )
 
     assert listed.status_code == 200
@@ -77,17 +77,17 @@ async def test_list_and_get_conversation_for_owner(client, session_factory):
 async def test_conversation_list_pagination(client, session_factory):
     headers = await register_and_login(client, "conv-page@example.com")
     owner_id = await user_id_for(client, headers)
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     for index in range(3):
         await seed_conversation(
-            session_factory, tenant_id, owner_id, title=f"C{index}", minutes_ago=index
+            session_factory, workspace_id, owner_id, title=f"C{index}", minutes_ago=index
         )
 
     first_page = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations?limit=2", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations?limit=2", headers=headers
     )
     second_page = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations?limit=2&offset=2", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations?limit=2&offset=2", headers=headers
     )
 
     assert len(first_page.json()) == 2
@@ -96,14 +96,14 @@ async def test_conversation_list_pagination(client, session_factory):
 
 async def test_conversations_require_manager_role(client, session_factory):
     owner_headers = await register_and_login(client, "conv-manager@example.com")
-    tenant_id = await create_tenant(client, owner_headers)
+    workspace_id = await create_workspace(client, owner_headers)
 
     member_headers = await register_and_login(client, "conv-member@example.com")
     member_id = await user_id_for(client, member_headers)
-    await add_member(session_factory, member_id, tenant_id)
+    await add_member(session_factory, member_id, workspace_id)
 
     listed = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations", headers=member_headers
+        f"/api/v1/workspaces/{workspace_id}/conversations", headers=member_headers
     )
 
     assert listed.status_code == 403
@@ -112,37 +112,37 @@ async def test_conversations_require_manager_role(client, session_factory):
 
 async def test_conversations_reject_non_member_and_anonymous(client):
     owner_headers = await register_and_login(client, "conv-a@example.com")
-    tenant_id = await create_tenant(client, owner_headers)
+    workspace_id = await create_workspace(client, owner_headers)
     other_headers = await register_and_login(client, "conv-b@example.com")
 
     other = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations", headers=other_headers
+        f"/api/v1/workspaces/{workspace_id}/conversations", headers=other_headers
     )
     client.cookies.clear()
-    anonymous = await client.get(f"/api/v1/tenants/{tenant_id}/conversations")
+    anonymous = await client.get(f"/api/v1/workspaces/{workspace_id}/conversations")
 
     assert other.status_code == 403
     assert other.json()["code"] == "NOT_A_MEMBER"
     assert anonymous.status_code == 401
 
 
-async def test_conversation_scoped_to_tenant(client, session_factory):
+async def test_conversation_scoped_to_workspace(client, session_factory):
     first_headers = await register_and_login(client, "conv-first@example.com")
     first_id = await user_id_for(client, first_headers)
-    first_tenant = await create_tenant(client, first_headers, name="First Co")
+    first_workspace = await create_workspace(client, first_headers, name="First Co")
     conversation_id = await seed_conversation(
-        session_factory, first_tenant, first_id, title="Secret"
+        session_factory, first_workspace, first_id, title="Secret"
     )
 
     second_headers = await register_and_login(client, "conv-second@example.com")
-    second_tenant = await create_tenant(client, second_headers, name="Second Co")
+    second_workspace = await create_workspace(client, second_headers, name="Second Co")
 
     detail = await client.get(
-        f"/api/v1/tenants/{second_tenant}/conversations/{conversation_id}",
+        f"/api/v1/workspaces/{second_workspace}/conversations/{conversation_id}",
         headers=second_headers,
     )
     deleted = await client.delete(
-        f"/api/v1/tenants/{second_tenant}/conversations/{conversation_id}",
+        f"/api/v1/workspaces/{second_workspace}/conversations/{conversation_id}",
         headers=second_headers,
     )
 
@@ -153,18 +153,18 @@ async def test_conversation_scoped_to_tenant(client, session_factory):
 async def test_delete_conversation(client, session_factory):
     headers = await register_and_login(client, "conv-delete@example.com")
     owner_id = await user_id_for(client, headers)
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     conversation_id = await seed_conversation(
-        session_factory, tenant_id, owner_id, title="To delete"
+        session_factory, workspace_id, owner_id, title="To delete"
     )
 
     response = await client.delete(
-        f"/api/v1/tenants/{tenant_id}/conversations/{conversation_id}", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations/{conversation_id}", headers=headers
     )
 
     assert response.status_code == 204
     detail = await client.get(
-        f"/api/v1/tenants/{tenant_id}/conversations/{conversation_id}", headers=headers
+        f"/api/v1/workspaces/{workspace_id}/conversations/{conversation_id}", headers=headers
     )
     assert detail.status_code == 404
     async with session_factory() as session:

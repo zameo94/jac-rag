@@ -19,28 +19,28 @@ async def qdrant():
     await client.close()
 
 
-def test_collection_name_is_tenant_scoped():
-    assert vector_store.collection_name(5) == "tenant_5"
+def test_collection_name_is_workspace_scoped():
+    assert vector_store.collection_name(5) == "workspace_5"
     assert vector_store.collection_name(1) != vector_store.collection_name(2)
 
 
 async def test_ensure_collection_creates_collection(qdrant):
     await vector_store.ensure_collection(qdrant, 1)
 
-    assert await qdrant.collection_exists("tenant_1")
+    assert await qdrant.collection_exists("workspace_1")
 
 
 async def test_ensure_collection_is_idempotent(qdrant):
     await vector_store.ensure_collection(qdrant, 1)
     await vector_store.ensure_collection(qdrant, 1)
 
-    assert await qdrant.collection_exists("tenant_1")
+    assert await qdrant.collection_exists("workspace_1")
 
 
 async def test_ensure_collection_uses_configured_dimension(qdrant):
     await vector_store.ensure_collection(qdrant, 2)
 
-    info = await qdrant.get_collection("tenant_2")
+    info = await qdrant.get_collection("workspace_2")
     assert info.config.params.vectors.size == get_settings().embedding_dim
     assert info.config.params.vectors.distance == Distance.COSINE
 
@@ -50,7 +50,7 @@ async def test_delete_collection_removes_collection(qdrant):
 
     await vector_store.delete_collection(qdrant, 3)
 
-    assert not await qdrant.collection_exists("tenant_3")
+    assert not await qdrant.collection_exists("workspace_3")
 
 
 async def test_delete_collection_is_idempotent(qdrant):
@@ -65,7 +65,7 @@ async def test_upsert_chunks_stores_points(qdrant):
     )
 
     assert count == 2
-    info = await qdrant.get_collection("tenant_1")
+    info = await qdrant.get_collection("workspace_1")
     assert info.points_count == 2
 
 
@@ -109,15 +109,15 @@ async def test_delete_document_chunks_on_missing_collection(qdrant):
     await vector_store.delete_document_chunks(qdrant, 999, 1)
 
 
-async def test_tenants_are_isolated_in_separate_collections(qdrant):
-    await vector_store.upsert_chunks(qdrant, 1, 10, "a.txt", [(0, "tenant one")], [unit_vector(0)])
-    await vector_store.upsert_chunks(qdrant, 2, 20, "b.txt", [(0, "tenant two")], [unit_vector(0)])
+async def test_workspaces_are_isolated_in_separate_collections(qdrant):
+    await vector_store.upsert_chunks(qdrant, 1, 10, "a.txt", [(0, "workspace one")], [unit_vector(0)])
+    await vector_store.upsert_chunks(qdrant, 2, 20, "b.txt", [(0, "workspace two")], [unit_vector(0)])
 
     results_one = await vector_store.search_chunks(qdrant, 1, unit_vector(0), limit=10)
     results_two = await vector_store.search_chunks(qdrant, 2, unit_vector(0), limit=10)
 
-    assert [result.text for result in results_one] == ["tenant one"]
-    assert [result.text for result in results_two] == ["tenant two"]
+    assert [result.text for result in results_one] == ["workspace one"]
+    assert [result.text for result in results_two] == ["workspace two"]
 
 
 async def test_point_id_is_deterministic():

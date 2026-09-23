@@ -26,8 +26,8 @@
     "INVALID_TOKEN": "Sessione scaduta. Effettua di nuovo l'accesso.",
     "INVALID_REFRESH_TOKEN": "Sessione scaduta. Effettua di nuovo l'accesso.",
     "VALIDATION_ERROR": "I dati inseriti non sono validi.",
-    "TENANT_NOT_FOUND": "Workspace non trovato.",
-    "TENANT_INACTIVE": "Questo workspace è disattivato.",
+    "WORKSPACE_NOT_FOUND": "Workspace non trovato.",
+    "WORKSPACE_INACTIVE": "Questo workspace è disattivato.",
     "SLUG_ALREADY_TAKEN": "Esiste già un workspace con questo identificativo.",
     "INVALID_SLUG": "Identificativo del workspace non valido.",
     "NOT_A_MEMBER": "Non hai accesso a questo workspace.",
@@ -71,7 +71,7 @@
     "goLogin": "Accedi",
     "logout": "Esci"
   },
-  "tenants": {
+  "workspaces": {
     "title": "I tuoi workspace",
     "switch": "Cambia workspace",
     "new": "Nuovo workspace",

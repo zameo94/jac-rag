@@ -29,7 +29,7 @@ def _same_actor(
 
 async def resolve_conversation(
     session: AsyncSession,
-    tenant_id: int,
+    workspace_id: int,
     *,
     user_id: int | None,
     end_user_id: str | None,
@@ -40,14 +40,14 @@ async def resolve_conversation(
         conversation = await session.get(Conversation, conversation_id)
         if (
             conversation is None
-            or conversation.tenant_id != tenant_id
+            or conversation.workspace_id != workspace_id
             or not _same_actor(conversation, user_id, end_user_id)
         ):
             raise api_error(404, "CONVERSATION_NOT_FOUND", "Conversation not found")
         return conversation
 
     conversation = Conversation(
-        tenant_id=tenant_id,
+        workspace_id=workspace_id,
         user_id=user_id,
         end_user_id=end_user_id,
         title=make_title(title_source),

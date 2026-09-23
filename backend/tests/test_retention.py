@@ -11,7 +11,7 @@ from app.tasks.retention import purge_conversations, purge_old_conversations
 async def seed(session_factory, *, days_ago: int) -> int:
     async with session_factory() as session:
         conversation = Conversation(
-            tenant_id=1,
+            workspace_id=1,
             user_id=1,
             title="t",
             updated_at=utcnow() - timedelta(days=days_ago),

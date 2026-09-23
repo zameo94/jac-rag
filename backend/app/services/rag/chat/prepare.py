@@ -6,13 +6,13 @@ from qdrant_client import AsyncQdrantClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import get_settings
-from app.models import Conversation, Tenant, User
-from app.schemas.tenant import AnswerMode
+from app.models import Conversation, Workspace, User
+from app.schemas.workspace import AnswerMode
 from app.services.llm.base import LLMMessage, LLMProvider
 from app.services.llm.factory import build_provider
-from app.services.llm.resolution.tenant import tenant_model_override
+from app.services.llm.resolution.workspace import workspace_model_override
 from app.services.llm.resolution.user import (
-    resolve_tenant_provider,
+    resolve_workspace_provider,
     resolve_user_provider,
 )
 from app.services.rag.chat.conversations import (
@@ -54,7 +54,7 @@ async def prepare_chat(
     session: AsyncSession,
     client: AsyncQdrantClient,
     *,
-    tenant: Tenant,
+    workspace: Workspace,
     message: str,
     conversation_id: int | None = None,
     user: User | None = None,
@@ -68,17 +68,17 @@ async def prepare_chat(
     needed while streaming.
     """
     if user is not None:
-        capability = await resolve_user_provider(session, tenant.id, user.id)
+        capability = await resolve_user_provider(session, workspace.id, user.id)
         actor_user_id: int | None = user.id
-        locale = user.locale or tenant.default_locale
+        locale = user.locale or workspace.default_locale
     else:
-        capability = await resolve_tenant_provider(session, tenant.id)
+        capability = await resolve_workspace_provider(session, workspace.id)
         actor_user_id = None
-        locale = locale_override or tenant.default_locale
+        locale = locale_override or workspace.default_locale
 
-    model_override = await tenant_model_override(session, tenant.id)
+    model_override = await workspace_model_override(session, workspace.id)
     provider, model = await build_provider(
-        session, tenant.id, capability.id, model_override
+        session, workspace.id, capability.id, model_override
     )
 
     try:
@@ -88,7 +88,7 @@ async def prepare_chat(
             if settings.rerank_enabled
             else settings.retrieval_top_k
         )
-        chunks = await retrieve_chunks(client, tenant.id, message, top_k=window)
+        chunks = await retrieve_chunks(client, workspace.id, message, top_k=window)
         grounded = has_context(chunks)
         if not grounded:
             used: list[RetrievedChunk] = []
@@ -101,7 +101,7 @@ async def prepare_chat(
 
         conversation = await resolve_conversation(
             session,
-            tenant.id,
+            workspace.id,
             user_id=actor_user_id,
             end_user_id=end_user_id,
             conversation_id=conversation_id,
@@ -122,6 +122,6 @@ async def prepare_chat(
         used_chunks=used,
         conversation=conversation,
         history=to_llm_messages(history),
-        answer_mode=tenant.answer_mode,
+        answer_mode=workspace.answer_mode,
         locale=locale,
     )

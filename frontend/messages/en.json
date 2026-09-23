@@ -26,8 +26,8 @@
     "INVALID_TOKEN": "Session expired. Please sign in again.",
     "INVALID_REFRESH_TOKEN": "Session expired. Please sign in again.",
     "VALIDATION_ERROR": "The submitted data is not valid.",
-    "TENANT_NOT_FOUND": "Workspace not found.",
-    "TENANT_INACTIVE": "This workspace is disabled.",
+    "WORKSPACE_NOT_FOUND": "Workspace not found.",
+    "WORKSPACE_INACTIVE": "This workspace is disabled.",
     "SLUG_ALREADY_TAKEN": "A workspace with this identifier already exists.",
     "INVALID_SLUG": "Invalid workspace identifier.",
     "NOT_A_MEMBER": "You do not have access to this workspace.",
@@ -71,7 +71,7 @@
     "goLogin": "Sign in",
     "logout": "Log out"
   },
-  "tenants": {
+  "workspaces": {
     "title": "Your workspaces",
     "switch": "Switch workspace",
     "new": "New workspace",

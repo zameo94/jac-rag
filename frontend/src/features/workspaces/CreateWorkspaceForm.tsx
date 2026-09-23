@@ -4,16 +4,16 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import type { AnswerMode } from "@/lib/types";
 
 export function CreateWorkspaceForm() {
-  const t = useTranslations("tenants");
+  const t = useTranslations("workspaces");
   const locale = useLocale();
   const router = useRouter();
-  const { refreshTenants, selectTenant } = useTenant();
+  const { refreshWorkspaces, selectWorkspace } = useWorkspace();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [defaultLocale, setDefaultLocale] = useState(locale);
@@ -26,9 +26,9 @@ export function CreateWorkspaceForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const created = await api.tenants.create(name, slug, defaultLocale, answerMode);
-      await refreshTenants();
-      selectTenant(created.id);
+      const created = await api.workspaces.create(name, slug, defaultLocale, answerMode);
+      await refreshWorkspaces();
+      selectWorkspace(created.id);
       router.push("/");
     } catch (err) {
       setError(err);

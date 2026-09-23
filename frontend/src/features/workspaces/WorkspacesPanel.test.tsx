@@ -2,16 +2,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const selectTenant = vi.fn();
-const refreshTenants = vi.fn().mockResolvedValue(undefined);
+const selectWorkspace = vi.fn();
+const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
 
 const apiMock = vi.hoisted(() => ({
   members: { me: vi.fn() },
-  tenants: { remove: vi.fn() },
+  workspaces: { remove: vi.fn() },
 }));
 
 const state = vi.hoisted(() => ({
-  tenants: [
+  workspaces: [
     {
       id: 1,
       name: "Acme",
@@ -29,22 +29,22 @@ const state = vi.hoisted(() => ({
       is_active: true,
     },
   ],
-  activeTenantId: 1,
+  activeWorkspaceId: 1,
 }));
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => {
     const messages: Record<string, string> = {
-      "tenants.title": "Your workspaces",
-      "tenants.new": "New workspace",
-      "tenants.edit": "Edit workspace",
-      "tenants.delete": "Delete workspace",
-      "tenants.deleteConfirm": "Delete this workspace? Everything will be lost.",
-      "tenants.switch": "Switch workspace",
-      "tenants.active": "Active",
-      "tenants.inactive": "Inactive",
-      "tenants.current": "Current",
-      "tenants.empty": "No workspaces.",
+      "workspaces.title": "Your workspaces",
+      "workspaces.new": "New workspace",
+      "workspaces.edit": "Edit workspace",
+      "workspaces.delete": "Delete workspace",
+      "workspaces.deleteConfirm": "Delete this workspace? Everything will be lost.",
+      "workspaces.switch": "Switch workspace",
+      "workspaces.active": "Active",
+      "workspaces.inactive": "Inactive",
+      "workspaces.current": "Current",
+      "workspaces.empty": "No workspaces.",
       "errors.generic": "Generic error",
     };
     return Object.assign((key: string) => messages[`${namespace}.${key}`] ?? key, {
@@ -61,12 +61,12 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({
-    tenants: state.tenants,
-    activeTenant: state.tenants.find((tenant) => tenant.id === state.activeTenantId),
-    selectTenant,
-    refreshTenants,
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({
+    workspaces: state.workspaces,
+    activeWorkspace: state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId),
+    selectWorkspace,
+    refreshWorkspaces,
   }),
 }));
 
@@ -75,16 +75,16 @@ vi.mock("@/lib/api", () => ({ api: apiMock }));
 import { WorkspacesPanel } from "@/features/workspaces/WorkspacesPanel";
 
 beforeEach(() => {
-  selectTenant.mockClear();
-  refreshTenants.mockClear();
+  selectWorkspace.mockClear();
+  refreshWorkspaces.mockClear();
   apiMock.members.me.mockReset();
-  apiMock.tenants.remove.mockReset();
+  apiMock.workspaces.remove.mockReset();
   apiMock.members.me.mockImplementation((id: number) =>
     Promise.resolve({ role: id === 1 ? "OWNER" : "MEMBER" }),
   );
-  apiMock.tenants.remove.mockResolvedValue(undefined);
-  state.activeTenantId = 1;
-  state.tenants = [
+  apiMock.workspaces.remove.mockResolvedValue(undefined);
+  state.activeWorkspaceId = 1;
+  state.workspaces = [
     {
       id: 1,
       name: "Acme",
@@ -132,11 +132,11 @@ describe("WorkspacesPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Switch workspace" }));
 
-    expect(selectTenant).toHaveBeenCalledWith(2);
+    expect(selectWorkspace).toHaveBeenCalledWith(2);
   });
 
   it("shows an empty state for a guest", () => {
-    state.tenants = [];
+    state.workspaces = [];
 
     render(<WorkspacesPanel />);
 
@@ -156,7 +156,7 @@ describe("WorkspacesPanel", () => {
   });
 
   it("shows an inactive badge for a deactivated workspace", () => {
-    state.tenants[1].is_active = false;
+    state.workspaces[1].is_active = false;
 
     render(<WorkspacesPanel />);
 
@@ -181,8 +181,8 @@ describe("WorkspacesPanel", () => {
     );
     await user.click(screen.getByRole("button", { name: "Delete workspace" }));
 
-    await waitFor(() => expect(apiMock.tenants.remove).toHaveBeenCalledWith(1));
-    expect(refreshTenants).toHaveBeenCalled();
+    await waitFor(() => expect(apiMock.workspaces.remove).toHaveBeenCalledWith(1));
+    expect(refreshWorkspaces).toHaveBeenCalled();
   });
 
   it("does not delete when the confirmation is dismissed", async () => {
@@ -195,6 +195,6 @@ describe("WorkspacesPanel", () => {
     );
     await user.click(screen.getByRole("button", { name: "Delete workspace" }));
 
-    expect(apiMock.tenants.remove).not.toHaveBeenCalled();
+    expect(apiMock.workspaces.remove).not.toHaveBeenCalled();
   });
 });

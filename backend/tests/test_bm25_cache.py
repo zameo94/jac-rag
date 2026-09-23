@@ -16,10 +16,10 @@ def _zero_vector() -> list[float]:
     return [0.0] * get_settings().embedding_dim
 
 
-async def upsert_document(client, tenant_id, document_id, texts) -> None:
+async def upsert_document(client, workspace_id, document_id, texts) -> None:
     await vector_store.upsert_chunks(
         client,
-        tenant_id,
+        workspace_id,
         document_id,
         f"doc{document_id}.md",
         [(index, text) for index, text in enumerate(texts)],
@@ -103,11 +103,11 @@ async def test_get_lexical_index_rebuilds_same_count_after_invalidate():
 
 
 async def test_get_lexical_index_evicts_least_recently_used(monkeypatch):
-    monkeypatch.setattr(bm25, "MAX_CACHED_TENANTS", 2)
+    monkeypatch.setattr(bm25, "MAX_CACHED_WORKSPACES", 2)
     client = AsyncQdrantClient(":memory:")
-    for tenant_id in (1, 2, 3):
-        await vector_store.ensure_collection(client, tenant_id)
-        await upsert_document(client, tenant_id, 1, [f"testo del tenant {tenant_id}"])
+    for workspace_id in (1, 2, 3):
+        await vector_store.ensure_collection(client, workspace_id)
+        await upsert_document(client, workspace_id, 1, [f"testo del workspace {workspace_id}"])
 
     one = await bm25.get_lexical_index(client, 1)
     await bm25.get_lexical_index(client, 2)

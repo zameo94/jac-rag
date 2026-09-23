@@ -104,7 +104,7 @@ def test_decode_token_rejects_non_numeric_subject():
 def test_visitor_token_round_trip():
     identity = security.decode_visitor_token(security.create_visitor_token(5))
 
-    assert identity.tenant_id == 5
+    assert identity.workspace_id == 5
     assert identity.subject
 
 
@@ -124,7 +124,7 @@ def test_decode_visitor_token_rejects_expired_token():
         security.decode_visitor_token(token)
 
 
-def test_decode_visitor_token_rejects_missing_tenant():
+def test_decode_visitor_token_rejects_missing_workspace():
     settings = get_settings()
     token = jwt.encode(
         {"sub": "abc", "type": security.VISITOR_TOKEN_TYPE},

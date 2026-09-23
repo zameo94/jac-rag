@@ -15,8 +15,8 @@ vi.mock("next-intl", () => ({
       "nav.members": "Members",
       "nav.settings": "Settings",
       "nav.workspaces": "Workspaces",
-      "tenants.new": "New workspace",
-      "tenants.editTitle": "Edit workspace",
+      "workspaces.new": "New workspace",
+      "workspaces.editTitle": "Edit workspace",
       "breadcrumbs.label": "Breadcrumb",
     };
     return (key: string) => messages[key] ?? key;

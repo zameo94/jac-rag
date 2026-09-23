@@ -2,17 +2,17 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-const refreshTenants = vi.fn().mockResolvedValue(undefined);
+const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
 
 const apiMock = vi.hoisted(() => ({
   members: { me: vi.fn() },
-  tenants: { update: vi.fn() },
+  workspaces: { update: vi.fn() },
 }));
 
 const state = vi.hoisted(() => ({
   id: "1",
   loading: false,
-  tenants: [
+  workspaces: [
     {
       id: 1,
       name: "Acme",
@@ -29,20 +29,20 @@ vi.mock("next/navigation", () => ({ useParams: () => ({ id: state.id }) }));
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => {
     const messages: Record<string, string> = {
-      "tenants.editTitle": "Edit workspace",
-      "tenants.notFound": "Workspace not found.",
-      "tenants.forbidden": "You do not have permission to edit this workspace.",
-      "tenants.name": "Name",
-      "tenants.slug": "Identifier",
-      "tenants.defaultLocale": "Default language",
-      "tenants.answerMode": "Answer mode",
-      "tenants.strict": "Strict",
-      "tenants.assistive": "Assistive",
-      "tenants.status": "Status",
-      "tenants.active": "Active",
-      "tenants.inactive": "Inactive",
-      "tenants.statusHint": "hint",
-      "tenants.saving": "Saving...",
+      "workspaces.editTitle": "Edit workspace",
+      "workspaces.notFound": "Workspace not found.",
+      "workspaces.forbidden": "You do not have permission to edit this workspace.",
+      "workspaces.name": "Name",
+      "workspaces.slug": "Identifier",
+      "workspaces.defaultLocale": "Default language",
+      "workspaces.answerMode": "Answer mode",
+      "workspaces.strict": "Strict",
+      "workspaces.assistive": "Assistive",
+      "workspaces.status": "Status",
+      "workspaces.active": "Active",
+      "workspaces.inactive": "Inactive",
+      "workspaces.statusHint": "hint",
+      "workspaces.saving": "Saving...",
       "common.save": "Save",
       "common.cancel": "Cancel",
       "common.back": "Back",
@@ -63,11 +63,11 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({
-    tenants: state.tenants,
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({
+    workspaces: state.workspaces,
     loading: state.loading,
-    refreshTenants,
+    refreshWorkspaces,
   }),
 }));
 
@@ -77,9 +77,9 @@ import EditWorkspacePage from "@/app/[locale]/dashboard/workspaces/[id]/edit/pag
 
 beforeEach(() => {
   push.mockClear();
-  refreshTenants.mockClear();
+  refreshWorkspaces.mockClear();
   apiMock.members.me.mockReset();
-  apiMock.tenants.update.mockReset();
+  apiMock.workspaces.update.mockReset();
   apiMock.members.me.mockResolvedValue({ role: "OWNER" });
   state.id = "1";
   state.loading = false;

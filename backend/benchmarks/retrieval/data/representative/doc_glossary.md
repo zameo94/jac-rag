@@ -8,9 +8,9 @@ La telemetria e la trasmissione automatica di misure raccolte da sensori remoti 
 
 Un edge gateway e un dispositivo che raccoglie i dati dei sensori locali e li inoltra al cloud, anche in assenza di connettivita stabile.
 
-## Tenant
+## Workspace
 
-Un tenant e uno spazio isolato che raccoglie utenti, dispositivi e misure di una singola organizzazione.
+Un workspace e uno spazio isolato che raccoglie utenti, dispositivi e misure di una singola organizzazione.
 
 ## SLA
 

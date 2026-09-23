@@ -9,14 +9,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.deps import (
     authenticate_user,
     bearer_scheme,
-    ensure_tenant_active,
+    ensure_workspace_active,
     get_current_membership,
     get_current_user,
     load_membership,
 )
 from app.core.errors import api_error
 from app.database import get_session, session_scope
-from app.models import Membership, Tenant, User
+from app.models import Membership, Workspace, User
 from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
 from app.schemas.conversation import MessageRole
 from app.services.llm.base import LLMProviderError
@@ -55,25 +55,25 @@ async def get_vector_client() -> AsyncGenerator[AsyncQdrantClient, None]:
         await client.close()
 
 
-@router.post("/{tenant_id}/chat", response_model=ChatResponse)
+@router.post("/{workspace_id}/chat", response_model=ChatResponse)
 async def chat(
-    tenant_id: int,
+    workspace_id: int,
     payload: ChatRequest,
     current_user: User = Depends(get_current_user),
     membership: Membership = Depends(get_current_membership),
     session: AsyncSession = Depends(get_session),
     client: AsyncQdrantClient = Depends(get_vector_client),
 ) -> ChatResponse:
-    tenant = await session.get(Tenant, tenant_id)
-    if tenant is None:
-        raise api_error(status.HTTP_404_NOT_FOUND, "TENANT_NOT_FOUND", "Tenant not found")
-    ensure_tenant_active(tenant)
+    workspace = await session.get(Workspace, workspace_id)
+    if workspace is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "WORKSPACE_NOT_FOUND", "Workspace not found")
+    ensure_workspace_active(workspace)
 
     try:
         prepared = await prepare_chat(
             session,
             client,
-            tenant=tenant,
+            workspace=workspace,
             message=payload.message,
             conversation_id=payload.conversation_id,
             user=current_user,
@@ -100,9 +100,9 @@ async def chat(
     )
 
 
-@router.post("/{tenant_id}/chat/stream")
+@router.post("/{workspace_id}/chat/stream")
 async def chat_stream(
-    tenant_id: int,
+    workspace_id: int,
     payload: ChatRequest,
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -110,14 +110,14 @@ async def chat_stream(
 ) -> StreamingResponse:
     async with session_scope() as session:
         user = await authenticate_user(session, request, credentials)
-        await load_membership(session, user, tenant_id)
-        tenant = await session.get(Tenant, tenant_id)
-        ensure_tenant_active(tenant)
+        await load_membership(session, user, workspace_id)
+        workspace = await session.get(Workspace, workspace_id)
+        ensure_workspace_active(workspace)
         try:
             prepared = await prepare_chat(
                 session,
                 client,
-                tenant=tenant,
+                workspace=workspace,
                 message=payload.message,
                 conversation_id=payload.conversation_id,
                 user=user,

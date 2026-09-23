@@ -9,8 +9,8 @@ vi.mock("@/features/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { id: 1, email: "user@example.com" } }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ activeTenant: { id: 1 } }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ activeWorkspace: { id: 1 } }),
 }));
 
 const apiMock = vi.hoisted(() => ({

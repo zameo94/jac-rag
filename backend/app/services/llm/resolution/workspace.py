@@ -41,26 +41,26 @@ def normalize_allowed_providers(value) -> tuple[str, ...]:
     return tuple(normalized)
 
 
-async def tenant_allowed_provider_ids(
-    session: AsyncSession, tenant_id: int
+async def workspace_allowed_provider_ids(
+    session: AsyncSession, workspace_id: int
 ) -> tuple[str, ...]:
     value = await get_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         ALLOWED_PROVIDERS_KEY,
     )
     return normalize_allowed_providers(value)
 
 
-async def tenant_model_override(
-    session: AsyncSession, tenant_id: int
+async def workspace_model_override(
+    session: AsyncSession, workspace_id: int
 ) -> str | None:
     value = await get_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         MODEL_KEY,
     )
@@ -69,13 +69,13 @@ async def tenant_model_override(
     return None
 
 
-async def tenant_default_provider(
-    session: AsyncSession, tenant_id: int
+async def workspace_default_provider(
+    session: AsyncSession, workspace_id: int
 ) -> str | None:
     value = await get_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         DEFAULT_PROVIDER_KEY,
     )
@@ -84,15 +84,15 @@ async def tenant_default_provider(
     return None
 
 
-async def available_providers_for_tenant(
-    session: AsyncSession, tenant_id: int
+async def available_providers_for_workspace(
+    session: AsyncSession, workspace_id: int
 ) -> tuple[ProviderCapability, ...]:
-    """Providers a tenant may use: its allowed set filtered by global capability.
+    """Providers a workspace may use: its allowed set filtered by global capability.
 
-    A tenant can only allow known providers, and a provider globally disabled
+    A workspace can only allow known providers, and a provider globally disabled
     (e.g. external APIs for now) is never returned even if listed.
     """
-    allowed = set(await tenant_allowed_provider_ids(session, tenant_id))
+    allowed = set(await workspace_allowed_provider_ids(session, workspace_id))
     return tuple(
         capability
         for capability in provider_capabilities()

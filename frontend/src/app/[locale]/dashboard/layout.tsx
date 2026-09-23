@@ -4,13 +4,13 @@ import { Navbar } from "@/components/Navbar";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { OptionsMenu } from "@/features/navigation/OptionsMenu";
-import { TenantProvider } from "@/features/tenants/TenantProvider";
+import { WorkspaceProvider } from "@/features/workspaces/WorkspaceProvider";
 import { WorkspaceGuard } from "@/features/workspaces/WorkspaceGuard";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
-      <TenantProvider>
+      <WorkspaceProvider>
         <WorkspaceGuard>
           <div className="min-h-screen">
             <Navbar>
@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </main>
           </div>
         </WorkspaceGuard>
-      </TenantProvider>
+      </WorkspaceProvider>
     </RequireAuth>
   );
 }

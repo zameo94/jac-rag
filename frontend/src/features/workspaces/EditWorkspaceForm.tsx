@@ -4,24 +4,24 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
-import type { AnswerMode, Tenant } from "@/lib/types";
+import type { AnswerMode, Workspace } from "@/lib/types";
 
 export interface EditWorkspaceFormProps {
-  tenant: Tenant;
+  workspace: Workspace;
   onDone: () => void;
 }
 
-export function EditWorkspaceForm({ tenant, onDone }: EditWorkspaceFormProps) {
-  const t = useTranslations("tenants");
+export function EditWorkspaceForm({ workspace, onDone }: EditWorkspaceFormProps) {
+  const t = useTranslations("workspaces");
   const common = useTranslations("common");
-  const { refreshTenants } = useTenant();
-  const [name, setName] = useState(tenant.name);
-  const [slug, setSlug] = useState(tenant.slug);
-  const [defaultLocale, setDefaultLocale] = useState(tenant.default_locale);
-  const [answerMode, setAnswerMode] = useState<AnswerMode>(tenant.answer_mode);
-  const [isActive, setIsActive] = useState(tenant.is_active);
+  const { refreshWorkspaces } = useWorkspace();
+  const [name, setName] = useState(workspace.name);
+  const [slug, setSlug] = useState(workspace.slug);
+  const [defaultLocale, setDefaultLocale] = useState(workspace.default_locale);
+  const [answerMode, setAnswerMode] = useState<AnswerMode>(workspace.answer_mode);
+  const [isActive, setIsActive] = useState(workspace.is_active);
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState(false);
 
@@ -30,14 +30,14 @@ export function EditWorkspaceForm({ tenant, onDone }: EditWorkspaceFormProps) {
     setSaving(true);
     setError(null);
     try {
-      await api.tenants.update(tenant.id, {
+      await api.workspaces.update(workspace.id, {
         name,
         slug,
         default_locale: defaultLocale,
         answer_mode: answerMode,
         is_active: isActive,
       });
-      await refreshTenants();
+      await refreshWorkspaces();
       onDone();
     } catch (err) {
       setError(err);

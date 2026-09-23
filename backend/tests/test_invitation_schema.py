@@ -37,7 +37,7 @@ def test_invitation_create_rejects_invalid_email():
 def test_invitation_created_exposes_token():
     invitation = InvitationCreated(
         id=1,
-        tenant_id=2,
+        workspace_id=2,
         email="user@example.com",
         role="MEMBER",
         token="raw-token",
@@ -90,7 +90,7 @@ def test_utcnow_is_timezone_aware():
 
 def test_invitation_model_stores_hash_not_token():
     invitation = Invitation(
-        tenant_id=1,
+        workspace_id=1,
         email="user@example.com",
         role=MembershipRole.MEMBER,
         token_hash=security.hash_token("secret"),

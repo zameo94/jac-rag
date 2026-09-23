@@ -68,12 +68,12 @@ class QdrantRetrievalIndex:
     def __init__(
         self,
         client: AsyncQdrantClient,
-        tenant_id: int,
+        workspace_id: int,
         chunks: list[IndexedChunk],
         config: BenchmarkConfig,
     ) -> None:
         self._client = client
-        self._tenant_id = tenant_id
+        self._workspace_id = workspace_id
         self._chunks = chunks
         self._by_id = {chunk.point_id: chunk for chunk in chunks}
         self.config = config
@@ -87,7 +87,7 @@ class QdrantRetrievalIndex:
         cls,
         dataset: BenchmarkDataset,
         *,
-        tenant_id: int = 1,
+        workspace_id: int = 1,
         retrieval_limit: int = 10,
     ) -> "QdrantRetrievalIndex":
         settings = get_settings()
@@ -100,7 +100,7 @@ class QdrantRetrievalIndex:
             include_metadata=settings.chunk_include_metadata,
         )
         client = AsyncQdrantClient(":memory:")
-        await vector_store.ensure_collection(client, tenant_id)
+        await vector_store.ensure_collection(client, workspace_id)
 
         chunks: list[IndexedChunk] = []
         for position, document in enumerate(dataset.documents, start=1):
@@ -112,7 +112,7 @@ class QdrantRetrievalIndex:
             metadatas = [_metadata_payload(chunk.metadata) for chunk in document_chunks]
             await vector_store.upsert_chunks(
                 client,
-                tenant_id,
+                workspace_id,
                 position,
                 document.document_id,
                 [(chunk.index, chunk.text) for chunk in document_chunks],
@@ -134,7 +134,7 @@ class QdrantRetrievalIndex:
             embedding_model=settings.embedding_model,
             embedding_dim=settings.embedding_dim,
             distance="Cosine",
-            collection=vector_store.collection_name(tenant_id),
+            collection=vector_store.collection_name(workspace_id),
             chunk_target_size=settings.chunk_size,
             chunk_max_size=settings.chunk_max_size,
             chunk_overlap=settings.chunk_overlap,
@@ -144,11 +144,11 @@ class QdrantRetrievalIndex:
             relevance_threshold=settings.relevance_threshold,
             retrieval_limit=retrieval_limit,
         )
-        return cls(client, tenant_id, chunks, config)
+        return cls(client, workspace_id, chunks, config)
 
     async def search(self, query: str, limit: int) -> list[Hit]:
         vector = await embeddings.embed_query(query)
-        results = await vector_store.search_chunks(self._client, self._tenant_id, vector, limit)
+        results = await vector_store.search_chunks(self._client, self._workspace_id, vector, limit)
         hits: list[Hit] = []
         for result in results:
             point_id = vector_store._point_id(result.document_id, result.chunk_index)

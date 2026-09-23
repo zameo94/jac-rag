@@ -18,19 +18,19 @@ MANAGERS = (MembershipRole.OWNER, MembershipRole.ADMIN)
 
 
 @router.post(
-    "/{tenant_id}/api-keys",
+    "/{workspace_id}/api-keys",
     response_model=ApiKeyCreated,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_api_key(
-    tenant_id: int,
+    workspace_id: int,
     payload: ApiKeyCreate,
     membership: Membership = Depends(require_role(*MANAGERS)),
     session: AsyncSession = Depends(get_session),
 ) -> ApiKeyCreated:
     plaintext = security.generate_embed_key()
     key = ApiKey(
-        tenant_id=tenant_id,
+        workspace_id=workspace_id,
         name=payload.name,
         prefix=security.embed_key_prefix(plaintext),
         key_hash=security.hash_token(plaintext),
@@ -41,7 +41,7 @@ async def create_api_key(
     await session.refresh(key)
     return ApiKeyCreated(
         id=key.id,
-        tenant_id=key.tenant_id,
+        workspace_id=key.workspace_id,
         name=key.name,
         prefix=key.prefix,
         is_active=key.is_active,
@@ -51,28 +51,28 @@ async def create_api_key(
     )
 
 
-@router.get("/{tenant_id}/api-keys", response_model=List[ApiKeyRead])
+@router.get("/{workspace_id}/api-keys", response_model=List[ApiKeyRead])
 async def list_api_keys(
-    tenant_id: int,
+    workspace_id: int,
     membership: Membership = Depends(require_role(*MANAGERS)),
     session: AsyncSession = Depends(get_session),
 ) -> List[ApiKey]:
     statement = (
-        select(ApiKey).where(ApiKey.tenant_id == tenant_id).order_by(ApiKey.id.desc())
+        select(ApiKey).where(ApiKey.workspace_id == workspace_id).order_by(ApiKey.id.desc())
     )
     return (await session.exec(statement)).all()
 
 
-@router.patch("/{tenant_id}/api-keys/{key_id}", response_model=ApiKeyRead)
+@router.patch("/{workspace_id}/api-keys/{key_id}", response_model=ApiKeyRead)
 async def update_api_key(
-    tenant_id: int,
+    workspace_id: int,
     key_id: int,
     payload: ApiKeyUpdate,
     membership: Membership = Depends(require_role(*MANAGERS)),
     session: AsyncSession = Depends(get_session),
 ) -> ApiKey:
     key = await session.get(ApiKey, key_id)
-    if key is None or key.tenant_id != tenant_id:
+    if key is None or key.workspace_id != workspace_id:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "API_KEY_NOT_FOUND",
