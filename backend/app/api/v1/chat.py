@@ -9,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.deps import (
     authenticate_user,
     bearer_scheme,
+    ensure_tenant_active,
     get_current_membership,
     get_current_user,
     load_membership,
@@ -66,6 +67,7 @@ async def chat(
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise api_error(status.HTTP_404_NOT_FOUND, "TENANT_NOT_FOUND", "Tenant not found")
+    ensure_tenant_active(tenant)
 
     try:
         prepared = await prepare_chat(
@@ -110,6 +112,7 @@ async def chat_stream(
         user = await authenticate_user(session, request, credentials)
         await load_membership(session, user, tenant_id)
         tenant = await session.get(Tenant, tenant_id)
+        ensure_tenant_active(tenant)
         try:
             prepared = await prepare_chat(
                 session,

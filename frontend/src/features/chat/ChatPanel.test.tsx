@@ -11,7 +11,7 @@ vi.mock("@/features/tenants/TenantProvider", () => ({
 
 vi.mock("@/lib/chat-stream", () => ({ streamChat: vi.fn() }));
 
-import { ChatPlayground } from "@/features/chat/ChatPlayground";
+import { ChatPanel } from "@/features/chat/ChatPanel";
 import { streamChat } from "@/lib/chat-stream";
 
 import { ApiError } from "@/lib/api-error";
@@ -23,7 +23,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("ChatPlayground", () => {
+describe("ChatPanel", () => {
   it("streams tokens into the assistant turn", async () => {
     streamMock.mockImplementation(async (_tenantId, _message, handlers) => {
       handlers.onSources?.({
@@ -35,7 +35,7 @@ describe("ChatPlayground", () => {
       handlers.onToken?.(" mondo");
     });
 
-    render(<ChatPlayground />);
+    render(<ChatPanel />);
 
     fireEvent.change(screen.getByPlaceholderText("placeholder"), {
       target: { value: "domanda" },
@@ -57,7 +57,7 @@ describe("ChatPlayground", () => {
       handlers.onError?.({ code: "LLM_UNAVAILABLE", message: "down" });
     });
 
-    const { container } = render(<ChatPlayground />);
+    const { container } = render(<ChatPanel />);
 
     fireEvent.change(screen.getByPlaceholderText("placeholder"), {
       target: { value: "domanda" },
@@ -75,7 +75,7 @@ describe("ChatPlayground", () => {
       new ApiError(0, { code: "STREAM_INCOMPLETE", message: "ended" }),
     );
 
-    const { container } = render(<ChatPlayground />);
+    const { container } = render(<ChatPanel />);
 
     fireEvent.change(screen.getByPlaceholderText("placeholder"), {
       target: { value: "domanda" },
@@ -96,7 +96,7 @@ describe("ChatPlayground", () => {
         }),
     );
 
-    render(<ChatPlayground />);
+    render(<ChatPanel />);
 
     fireEvent.change(screen.getByPlaceholderText("placeholder"), {
       target: { value: "domanda" },
@@ -120,7 +120,7 @@ describe("ChatPlayground", () => {
       handlers.onToken?.("ok");
     });
 
-    render(<ChatPlayground />);
+    render(<ChatPanel />);
     const input = screen.getByPlaceholderText("placeholder");
 
     fireEvent.change(input, { target: { value: "primo" } });
