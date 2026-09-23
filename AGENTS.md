@@ -1,6 +1,6 @@
 # jac-rag — Agent Guide
 
-Multi-tenant RAG SaaS: tenants upload documents (PDF/DOCX/TXT/MD), end users chat
+Multi-workspace RAG SaaS: workspaces upload documents (PDF/DOCX/TXT/MD), end users chat
 over them. Backend FastAPI + async SQLModel + PostgreSQL + Qdrant; CMS frontend in
 Next.js + TypeScript. An embeddable chat widget will live in a **separate repo** and
 consume the same versioned API.
@@ -17,9 +17,9 @@ consume the same versioned API.
 
 - Backend: Python 3.12, FastAPI, **async** SQLModel/SQLAlchemy + `asyncpg`, Alembic, Qdrant, Redis + taskiq.
 - Embeddings: **fastembed** (local, ONNX), fixed server-side. Multilingual model.
-- LLM generation: **per-tenant provider** — local Ollama and/or external API (BYO key).
+- LLM generation: **per-workspace provider** — local Ollama and/or external API (BYO key).
 - CMS frontend: Next.js (App Router) + **TypeScript** (mandatory). `next-intl` for i18n.
-- Widget: separate repo, consumes `/api/v1` with a tenant **embed key**.
+- Widget: separate repo, consumes `/api/v1` with a workspace **embed key**.
 
 ## Repository layout
 
@@ -32,16 +32,16 @@ backend/
       config.py            # pydantic-settings
       security.py          # password hash, JWT, embed keys, visitor tokens
       cors.py              # CorsDispatcher (CMS credentialed vs widget key-only)
-      deps.py              # auth deps, require_role, get_embed_tenant, get_widget_visitor
+      deps.py              # auth deps, require_role, get_embed_workspace, get_widget_visitor
       tkq.py               # taskiq broker/scheduler
     models/                # SQLModel table models (table=True)
     schemas/               # Pydantic/SQLModel schemas (Base/Create/Update/Read)
     api/v1/                # routers, one per resource (+ widget.py, conversations.py)
     services/
-      crypto.py            # encrypt/decrypt tenant secrets
+      crypto.py            # encrypt/decrypt workspace secrets
       rate_limit.py        # Redis fixed-window limiter for widget keys
       llm/                 # base.py + factory.py; providers/ (ollama, openai)
-                           # and resolution/ (capability, tenant, user, external)
+                           # and resolution/ (capability, workspace, user, external)
       rag/
         ir.py              # Common Document IR (blocks, tables, rows, cells)
         diagnostics.py     # extraction/oversized diagnostics
@@ -83,40 +83,40 @@ docker-compose.yml         # db, qdrant, redis, backend, worker, scheduler, fron
 - Tests: `pytest-asyncio` + `aiosqlite` (or testcontainers), not the sync `Session`
   pattern from medicines_manager.
 
-## Multi-tenancy rules
+## Multi-workspace rules
 
-- `tenant` is the isolation boundary. Every tenant-scoped table has `tenant_id`.
-- Users are global; membership is via `memberships(user_id, tenant_id, role)`.
-- **Never trust `tenant_id` from the client.** Derive membership server-side on every
-  tenant-scoped route and filter every query by it.
+- `workspace` is the isolation boundary. Every workspace-scoped table has `workspace_id`.
+- Users are global; membership is via `memberships(user_id, workspace_id, role)`.
+- **Never trust `workspace_id` from the client.** Derive membership server-side on every
+  workspace-scoped route and filter every query by it.
 - Roles: `OWNER | ADMIN | MEMBER`. Exactly one `OWNER`, not removable.
-- `OWNER`/`ADMIN` can update a tenant's settings (`PATCH /api/v1/tenants/{id}`): `name`,
+- `OWNER`/`ADMIN` can update a workspace's settings (`PATCH /api/v1/workspaces/{id}`): `name`,
   `slug` (still unique), `default_locale`, `answer_mode`, `is_active`. `MEMBER` gets `403`.
-- A tenant with `is_active = false` is **disabled for chat**: the chat endpoints (CMS and
-  widget) return `403 TENANT_INACTIVE`. Everything else (documents, settings, members,
+- A workspace with `is_active = false` is **disabled for chat**: the chat endpoints (CMS and
+  widget) return `403 WORKSPACE_INACTIVE`. Everything else (documents, settings, members,
   embed keys) keeps working. The widget `/config` exposes `is_active`.
-- Only the `OWNER` can delete a tenant (`DELETE /api/v1/tenants/{id}`): it removes the
-  tenant's memberships, documents, api keys, invitations, conversations/messages, tenant
+- Only the `OWNER` can delete a workspace (`DELETE /api/v1/workspaces/{id}`): it removes the
+  workspace's memberships, documents, api keys, invitations, conversations/messages, workspace
   settings, its Qdrant collection and the stored files.
-- Qdrant: **one collection per tenant** `tenant_{id}`. Strong isolation, clean deletion.
+- Qdrant: **one collection per workspace** `workspace_{id}`. Strong isolation, clean deletion.
 
 ## Data model
 
 ```
 users         (id, email UNIQUE, password_hash, locale, is_active, timestamps)
-tenants       (id, name, slug UNIQUE, default_locale, answer_mode, is_active, timestamps)
-memberships   (id, user_id, tenant_id, role, created_at)  UNIQUE(user_id, tenant_id)
-invitations   (id, tenant_id, email, role, token_hash, expires_at,
+workspaces       (id, name, slug UNIQUE, default_locale, answer_mode, is_active, timestamps)
+memberships   (id, user_id, workspace_id, role, created_at)  UNIQUE(user_id, workspace_id)
+invitations   (id, workspace_id, email, role, token_hash, expires_at,
                accepted_at, created_by, created_at)
-api_keys      (id, tenant_id, name, key_hash UNIQUE, prefix, is_active,
+api_keys      (id, workspace_id, name, key_hash UNIQUE, prefix, is_active,
                created_by, created_at, last_used_at)     # embed keys
-documents     (id, tenant_id, uploader_id, filename, storage_path, mime,
+documents     (id, workspace_id, uploader_id, filename, storage_path, mime,
                size, language, status, error, timestamps)
-conversations (id, tenant_id, user_id NULL, end_user_id NULL, title,
-               timestamps)  CHECK one actor, indexes (tenant_id, end_user_id|user_id)
+conversations (id, workspace_id, user_id NULL, end_user_id NULL, title,
+               timestamps)  CHECK one actor, indexes (workspace_id, end_user_id|user_id)
 messages      (id, conversation_id, role, content, sources JSON, provider,
                model, grounded, error_code, created_at)
-settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
+settings      (id, scope_type global|workspace|user, scope_id NULL, type, key,
                value JSON, timestamps)                  # generic (LLM etc.)
 ```
 
@@ -144,8 +144,8 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   proxy); the API must only be reachable through that trusted proxy. All rate-limit checks
   **fail open** on a `RedisError` (allow + log) so an outage never locks out users.
 - Onboarding is two-step: `register` creates only the user; then either
-  `create tenant` (creator becomes `OWNER`) or `accept invitation`.
-  `GET /api/v1/tenants/{id}/me` returns the caller's membership (role lookups in the
+  `create workspace` (creator becomes `OWNER`) or `accept invitation`.
+  `GET /api/v1/workspaces/{id}/me` returns the caller's membership (role lookups in the
   CMS never fetch the member list).
 - Invitations: admin generates a token, shared out-of-band; store only `token_hash`
   with expiry and `accepted_at` (one-shot).
@@ -155,11 +155,11 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   publishable key), so it grants only: open a chat and mint a visitor session. Requests
   carry it in `X-Embed-Key`.
 - **Visitor token**: `POST /api/v1/widget/session` (key-authed) mints an opaque signed
-  JWT (`type=visitor`, random `sub`, bound to the tenant, `VISITOR_TOKEN_EXPIRE_DAYS`).
+  JWT (`type=visitor`, random `sub`, bound to the workspace, `VISITOR_TOKEN_EXPIRE_DAYS`).
   The widget stores it and sends `X-Visitor-Token`; conversations are tied to its
   `subject`, so a client can never assert another visitor's identity. Stateless (no DB
   row per visitor).
-- Tenant secrets (LLM API keys) are **encrypted at rest** and **never returned** by the
+- Workspace secrets (LLM API keys) are **encrypted at rest** and **never returned** by the
   API (masked only). Only `OWNER`/`ADMIN` may manage them.
 
 ## Widget API & streaming
@@ -194,7 +194,10 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
 - CMS UI: `next-intl`, `messages/it.json` / `messages/en.json`.
 - Backend does **not** translate strings: stable error `code` + English `message`
   fallback; frontend maps `code → translation`.
-- Locale: `users.locale` + `tenants.default_locale`; the widget passes its own locale.
+- Locale: `users.locale` + `workspaces.default_locale`; the widget passes its own locale.
+  The CMS keeps `users.locale` in sync with the UI language (`PATCH /api/v1/auth/me`), so the
+  assistant answers in the language the user is browsing in; the workspace locale is the
+  fallback.
 - Assistant answers in the user/widget locale, even if retrieved context is in another
   language.
 
@@ -225,7 +228,7 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
   - text layer below `MIN_CHARS_PER_PAGE` -> full-page OCR;
   - page is image-dominant (`OCR_IMAGE_DOMINANCE_RATIO`) but has a text layer ->
     OCR **labels only** (alphabetic tokens), so the text layer always wins on values.
-  - ordinary text PDFs are never OCR'd. OCR language follows the tenant locale.
+  - ordinary text PDFs are never OCR'd. OCR language follows the workspace locale.
   - if extraction still yields no text, mark document `failed` with reason
     `no_text_layer` (never create an empty index silently).
 - Chunk metadata (page, block_type, table_id, row_indices, section, source_block_ids)
@@ -236,10 +239,10 @@ settings      (id, scope_type global|tenant|user, scope_id NULL, type, key,
 - Single model for the whole platform via `EMBEDDING_MODEL` / `EMBEDDING_DIM`, resolved at
   startup for backend and worker. **Must be multilingual.**
 - Rationale: privacy, zero cost, and — key — similarity thresholds are comparable across
-  tenants, so the relevance gate is calibrated once.
-- Changing the model later invalidates all vectors: requires re-embedding every tenant.
-  Mitigation: persist `embedding_model`/`embedding_dim` on tenant and document, and
-  migrate via `tenant_{id}__v2` + background reindex + atomic switch.
+  workspaces, so the relevance gate is calibrated once.
+- Changing the model later invalidates all vectors: requires re-embedding every workspace.
+  Mitigation: persist `embedding_model`/`embedding_dim` on workspace and document, and
+  migrate via `workspace_{id}__v2` + background reindex + atomic switch.
 - Verify the exact fastembed multilingual model availability/dimension before creating
   collections; do not assume.
 - **Never block the event loop**: `embed_texts`/`embed_query` and `rerank_chunks` are
@@ -260,12 +263,12 @@ message -> fastembed -> search Qdrant top-k
 ```
 
 - `strict` is the default: grounded in documents, refuses gracefully when context is
-  absent. `assistive` is opt-in per tenant.
+  absent. `assistive` is opt-in per workspace.
 - Prompt is rigid (answer only from context, cite sources, temperature 0, top-k 4-8).
   For weak local models this matters more than routing.
 - Optional deterministic greeting/short-message handling may run before retrieval; never
   an LLM-based classifier.
-- The hybrid lexical index (BM25Okapi) is **cached per tenant** (`bm25.get_lexical_index`,
+- The hybrid lexical index (BM25Okapi) is **cached per workspace** (`bm25.get_lexical_index`,
   LRU capped at 16). Writes invalidate it (`bm25.invalidate`); the collection point count
   is re-checked at most every `CACHE_REVALIDATE_SECONDS` (30) as a safety net, so the hot
   path is a dict lookup and per-request re-tokenization is gone with identical ranking.
@@ -277,20 +280,20 @@ message -> fastembed -> search Qdrant top-k
 - Abstraction: `LLMProvider` with `OllamaProvider` and `OpenAIProvider`
   (OpenAI-compatible: OpenAI, OpenRouter, OpenCode, vLLM...).
 - Exactly one provider per request, chosen explicitly by the user among the
-  tenant's allowed providers; no fallback, no multi-provider orchestration.
+  workspace's allowed providers; no fallback, no multi-provider orchestration.
 - Global capability: `EXTERNAL_API_ENABLED` gates whether `external_api` is
-  available at all. Per tenant: `allowed_providers`, `default_provider`, model
+  available at all. Per workspace: `allowed_providers`, `default_provider`, model
   override; per user: `selected_provider`.
-- `external_api` needs tenant config stored in the generic `settings` table
+- `external_api` needs workspace config stored in the generic `settings` table
   (`external_base_url`, `external_model`, `external_api_key` encrypted).
-- Endpoints: `GET/PUT /api/v1/tenants/{id}/llm/settings` (OWNER/ADMIN),
-  `GET /api/v1/tenants/{id}/llm/config` and `PUT .../llm/provider` (members).
+- Endpoints: `GET/PUT /api/v1/workspaces/{id}/llm/settings` (OWNER/ADMIN),
+  `GET /api/v1/workspaces/{id}/llm/config` and `PUT .../llm/provider` (members).
 - External keys encrypted at rest (`services/crypto.py`, Fernet) and never
   returned; local Ollama reached over the docker network.
 
 ## Secrets
 
-- `JWT_SECRET`, `ENCRYPTION_KEY` (serves tenant secrets), DB/Redis/Qdrant URLs via env.
+- `JWT_SECRET`, `ENCRYPTION_KEY` (serves workspace secrets), DB/Redis/Qdrant URLs via env.
 - Never log or return secrets. `.env` never committed.
 
 ## Frontend scope (CMS only, TypeScript)
@@ -312,7 +315,7 @@ message -> fastembed -> search Qdrant top-k
 ## Testing (mandatory)
 
 - **Every function and every behavior must be tested.** This is non-negotiable in this repo.
-  Happy paths, error paths, status codes, validation, edge cases, tenant isolation.
+  Happy paths, error paths, status codes, validation, edge cases, workspace isolation.
 - Python: `pytest` + `pytest-asyncio`; in-memory `aiosqlite` for DB tests. Async fixtures in `conftest.py`.
 - No production code is added without its tests in the same step.
 - Frontend (CMS): `Vitest` + React Testing Library once the app exists (TypeScript).
@@ -380,7 +383,9 @@ message -> fastembed -> search Qdrant top-k
   bundle, served by the embed-rag-chatbot nginx image). It is **optional**: the CMS
   starts without it and the embed-keys panel shows a hint instead of the snippet. The
   API URL is baked into the widget bundle (`VITE_WIDGET_API_URL` in that repo), so the
-  snippet is only script URL + embed key. `next.config.ts` forwards `NEXT_PUBLIC_*` from
+  snippet is script URL + embed key + `data-locale` (the workspace `default_locale`, so
+  the widget answers in the workspace language instead of the visitor's browser).
+  `next.config.ts` forwards `NEXT_PUBLIC_*` from
   the root `.env` for host dev; Compose passes the value to the frontend image as an
   optional **build arg** (the `./frontend` context has no root `.env`), so changing it
   needs a rebuild.
@@ -395,7 +400,7 @@ message -> fastembed -> search Qdrant top-k
 - `src/lib/api.ts` is the typed client (throws `ApiError` with a stable `code`);
   `src/lib/types.ts` mirrors the backend schemas.
 - `features/<domain>/` holds components/hooks/providers (mirrors medicines_manager).
-- Auth state in `AuthProvider`; active workspace in `TenantProvider`.
+- Auth state in `AuthProvider`; active workspace in `WorkspaceProvider`.
 - Sessions use **httpOnly cookies** (`jacrag_access`, `jacrag_refresh`) set by the
   backend. The browser never reads tokens; the CMS calls the API through the `/api`
   same-origin proxy so cookies are sent automatically.

@@ -1,7 +1,7 @@
 [project]
 name = "jac-rag_backend"
 version = "0.1.0"
-description = "SaaS RAG multi-tenant"
+description = "SaaS RAG multi-workspace"
 authors = [
     {name = "matteo", email = "matdeliperi.md@gmail.com"}
 ]

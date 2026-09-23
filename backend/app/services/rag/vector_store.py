@@ -15,8 +15,8 @@ class RetrievedChunk:
     filename: str
 
 
-def collection_name(tenant_id: int) -> str:
-    return f"tenant_{tenant_id}"
+def collection_name(workspace_id: int) -> str:
+    return f"workspace_{workspace_id}"
 
 
 def get_qdrant_client() -> AsyncQdrantClient:
@@ -26,8 +26,8 @@ def get_qdrant_client() -> AsyncQdrantClient:
     return AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
 
 
-async def ensure_collection(client: AsyncQdrantClient, tenant_id: int) -> None:
-    name = collection_name(tenant_id)
+async def ensure_collection(client: AsyncQdrantClient, workspace_id: int) -> None:
+    name = collection_name(workspace_id)
     if await client.collection_exists(name):
         return
     await client.create_collection(
@@ -39,22 +39,22 @@ async def ensure_collection(client: AsyncQdrantClient, tenant_id: int) -> None:
     )
 
 
-async def delete_collection(client: AsyncQdrantClient, tenant_id: int) -> None:
-    name = collection_name(tenant_id)
+async def delete_collection(client: AsyncQdrantClient, workspace_id: int) -> None:
+    name = collection_name(workspace_id)
     if await client.collection_exists(name):
         await client.delete_collection(name)
 
 
 async def upsert_chunks(
     client: AsyncQdrantClient,
-    tenant_id: int,
+    workspace_id: int,
     document_id: int,
     filename: str,
     chunks: list[tuple[int, str]],
     vectors: list[list[float]],
     metadatas: list[dict] | None = None,
 ) -> int:
-    await ensure_collection(client, tenant_id)
+    await ensure_collection(client, workspace_id)
     points = []
     for position, ((index, text), vector) in enumerate(zip(chunks, vectors)):
         payload: dict = {
@@ -69,16 +69,16 @@ async def upsert_chunks(
             PointStruct(id=_point_id(document_id, index), vector=vector, payload=payload)
         )
     if points:
-        await client.upsert(collection_name(tenant_id), points=points)
+        await client.upsert(collection_name(workspace_id), points=points)
     return len(points)
 
 
 async def delete_document_chunks(
-    client: AsyncQdrantClient, tenant_id: int, document_id: int
+    client: AsyncQdrantClient, workspace_id: int, document_id: int
 ) -> None:
     from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-    name = collection_name(tenant_id)
+    name = collection_name(workspace_id)
     if not await client.collection_exists(name):
         return
     await client.delete(
@@ -91,11 +91,11 @@ async def delete_document_chunks(
 
 async def search_chunks(
     client: AsyncQdrantClient,
-    tenant_id: int,
+    workspace_id: int,
     query_vector: list[float],
     limit: int,
 ) -> list[RetrievedChunk]:
-    name = collection_name(tenant_id)
+    name = collection_name(workspace_id)
     if not await client.collection_exists(name):
         return []
     response = await client.query_points(name, query=query_vector, limit=limit)

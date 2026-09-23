@@ -2,23 +2,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-const refreshTenants = vi.fn().mockResolvedValue(undefined);
-const selectTenant = vi.fn();
+const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
+const selectWorkspace = vi.fn();
 
-const apiMock = vi.hoisted(() => ({ tenants: { create: vi.fn() } }));
+const apiMock = vi.hoisted(() => ({ workspaces: { create: vi.fn() } }));
 
 vi.mock("next-intl", () => ({
   useLocale: () => "it",
   useTranslations: (namespace: string) => {
     const messages: Record<string, string> = {
-      "tenants.name": "Name",
-      "tenants.slug": "Identifier",
-      "tenants.slugPlaceholder": "If empty, generated from the name",
-      "tenants.defaultLocale": "Default language",
-      "tenants.answerMode": "Answer mode",
-      "tenants.strict": "Strict",
-      "tenants.assistive": "Assistive",
-      "tenants.createCta": "Create workspace",
+      "workspaces.name": "Name",
+      "workspaces.slug": "Identifier",
+      "workspaces.slugPlaceholder": "If empty, generated from the name",
+      "workspaces.defaultLocale": "Default language",
+      "workspaces.answerMode": "Answer mode",
+      "workspaces.strict": "Strict",
+      "workspaces.assistive": "Assistive",
+      "workspaces.createCta": "Create workspace",
     };
     return (key: string) => messages[`${namespace}.${key}`] ?? key;
   },
@@ -28,8 +28,8 @@ vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ refreshTenants, selectTenant }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ refreshWorkspaces, selectWorkspace }),
 }));
 
 vi.mock("@/lib/api", () => ({ api: apiMock }));
@@ -38,10 +38,10 @@ import { CreateWorkspaceForm } from "@/features/workspaces/CreateWorkspaceForm";
 
 beforeEach(() => {
   push.mockClear();
-  refreshTenants.mockClear();
-  selectTenant.mockClear();
-  apiMock.tenants.create.mockReset();
-  apiMock.tenants.create.mockResolvedValue({ id: 5, name: "Acme", slug: "acme" });
+  refreshWorkspaces.mockClear();
+  selectWorkspace.mockClear();
+  apiMock.workspaces.create.mockReset();
+  apiMock.workspaces.create.mockResolvedValue({ id: 5, name: "Acme", slug: "acme" });
 });
 
 function submit() {
@@ -66,10 +66,10 @@ describe("CreateWorkspaceForm", () => {
     submit();
 
     await waitFor(() =>
-      expect(apiMock.tenants.create).toHaveBeenCalledWith("Acme", "", "it", "strict"),
+      expect(apiMock.workspaces.create).toHaveBeenCalledWith("Acme", "", "it", "strict"),
     );
-    await waitFor(() => expect(refreshTenants).toHaveBeenCalled());
-    expect(selectTenant).toHaveBeenCalledWith(5);
+    await waitFor(() => expect(refreshWorkspaces).toHaveBeenCalled());
+    expect(selectWorkspace).toHaveBeenCalledWith(5);
     expect(push).toHaveBeenCalledWith("/");
   });
 
@@ -83,7 +83,7 @@ describe("CreateWorkspaceForm", () => {
     submit();
 
     await waitFor(() =>
-      expect(apiMock.tenants.create).toHaveBeenCalledWith(
+      expect(apiMock.workspaces.create).toHaveBeenCalledWith(
         "Acme",
         "",
         "it",

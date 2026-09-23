@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
 export function NoWorkspaceGate() {
-  const t = useTranslations("tenants");
+  const t = useTranslations("workspaces");
 
   return (
     <section className="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">

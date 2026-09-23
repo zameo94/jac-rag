@@ -11,8 +11,8 @@ const ROUTES: [RegExp, string][] = [
   [/^\/dashboard\/members$/, "nav.members"],
   [/^\/dashboard\/settings$/, "nav.settings"],
   [/^\/dashboard\/workspaces$/, "nav.workspaces"],
-  [/^\/dashboard\/workspaces\/new$/, "tenants.new"],
-  [/^\/dashboard\/workspaces\/[^/]+\/edit$/, "tenants.editTitle"],
+  [/^\/dashboard\/workspaces\/new$/, "workspaces.new"],
+  [/^\/dashboard\/workspaces\/[^/]+\/edit$/, "workspaces.editTitle"],
 ];
 
 export function Breadcrumbs() {

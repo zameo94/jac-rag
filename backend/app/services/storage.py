@@ -7,16 +7,16 @@ class StorageError(Exception):
     pass
 
 
-def tenant_storage_dir(tenant_id: int) -> Path:
+def workspace_storage_dir(workspace_id: int) -> Path:
     settings = get_settings()
-    return Path(settings.storage_dir) / f"tenant_{tenant_id}"
+    return Path(settings.storage_dir) / f"workspace_{workspace_id}"
 
 
-def save_upload(tenant_id: int, stored_name: str, content: bytes) -> str:
+def save_upload(workspace_id: int, stored_name: str, content: bytes) -> str:
     if not stored_name or "/" in stored_name or "\\" in stored_name or stored_name.startswith("."):
         raise StorageError("Invalid stored file name")
 
-    directory = tenant_storage_dir(tenant_id)
+    directory = workspace_storage_dir(workspace_id)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / stored_name
     path.write_bytes(content)

@@ -3,25 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api-error";
 
-const refreshTenants = vi.fn().mockResolvedValue(undefined);
+const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
 const onDone = vi.fn();
 
-const apiMock = vi.hoisted(() => ({ tenants: { update: vi.fn() } }));
+const apiMock = vi.hoisted(() => ({ workspaces: { update: vi.fn() } }));
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => {
     const messages: Record<string, string> = {
-      "tenants.name": "Name",
-      "tenants.slug": "Identifier",
-      "tenants.defaultLocale": "Default language",
-      "tenants.answerMode": "Answer mode",
-      "tenants.strict": "Strict",
-      "tenants.assistive": "Assistive",
-      "tenants.status": "Status",
-      "tenants.active": "Active",
-      "tenants.inactive": "Inactive",
-      "tenants.statusHint": "When inactive the chat stops answering.",
-      "tenants.saving": "Saving...",
+      "workspaces.name": "Name",
+      "workspaces.slug": "Identifier",
+      "workspaces.defaultLocale": "Default language",
+      "workspaces.answerMode": "Answer mode",
+      "workspaces.strict": "Strict",
+      "workspaces.assistive": "Assistive",
+      "workspaces.status": "Status",
+      "workspaces.active": "Active",
+      "workspaces.inactive": "Inactive",
+      "workspaces.statusHint": "When inactive the chat stops answering.",
+      "workspaces.saving": "Saving...",
       "common.save": "Save",
       "common.cancel": "Cancel",
       "errors.generic": "Generic error",
@@ -33,15 +33,15 @@ vi.mock("next-intl", () => ({
   },
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ refreshTenants }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ refreshWorkspaces }),
 }));
 
 vi.mock("@/lib/api", () => ({ api: apiMock }));
 
 import { EditWorkspaceForm } from "@/features/workspaces/EditWorkspaceForm";
 
-const tenant = {
+const workspace = {
   id: 1,
   name: "Acme",
   slug: "acme",
@@ -51,15 +51,15 @@ const tenant = {
 };
 
 beforeEach(() => {
-  refreshTenants.mockClear();
+  refreshWorkspaces.mockClear();
   onDone.mockClear();
-  apiMock.tenants.update.mockReset();
-  apiMock.tenants.update.mockResolvedValue({ id: 1 });
+  apiMock.workspaces.update.mockReset();
+  apiMock.workspaces.update.mockResolvedValue({ id: 1 });
 });
 
 describe("EditWorkspaceForm", () => {
   it("prefills the fields from the workspace", () => {
-    render(<EditWorkspaceForm tenant={tenant} onDone={onDone} />);
+    render(<EditWorkspaceForm workspace={workspace} onDone={onDone} />);
 
     expect(screen.getByLabelText("Name")).toHaveValue("Acme");
     expect(screen.getByLabelText("Identifier")).toHaveValue("acme");
@@ -69,13 +69,13 @@ describe("EditWorkspaceForm", () => {
   });
 
   it("saves and calls onDone", async () => {
-    render(<EditWorkspaceForm tenant={tenant} onDone={onDone} />);
+    render(<EditWorkspaceForm workspace={workspace} onDone={onDone} />);
 
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New name" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
-      expect(apiMock.tenants.update).toHaveBeenCalledWith(1, {
+      expect(apiMock.workspaces.update).toHaveBeenCalledWith(1, {
         name: "New name",
         slug: "acme",
         default_locale: "it",
@@ -83,18 +83,18 @@ describe("EditWorkspaceForm", () => {
         is_active: true,
       }),
     );
-    expect(refreshTenants).toHaveBeenCalled();
+    expect(refreshWorkspaces).toHaveBeenCalled();
     expect(onDone).toHaveBeenCalled();
   });
 
   it("sends the deactivated status", async () => {
-    render(<EditWorkspaceForm tenant={tenant} onDone={onDone} />);
+    render(<EditWorkspaceForm workspace={workspace} onDone={onDone} />);
 
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "inactive" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
-      expect(apiMock.tenants.update).toHaveBeenCalledWith(
+      expect(apiMock.workspaces.update).toHaveBeenCalledWith(
         1,
         expect.objectContaining({ is_active: false }),
       ),
@@ -102,20 +102,20 @@ describe("EditWorkspaceForm", () => {
   });
 
   it("cancels without saving", () => {
-    render(<EditWorkspaceForm tenant={tenant} onDone={onDone} />);
+    render(<EditWorkspaceForm workspace={workspace} onDone={onDone} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(apiMock.tenants.update).not.toHaveBeenCalled();
+    expect(apiMock.workspaces.update).not.toHaveBeenCalled();
     expect(onDone).toHaveBeenCalled();
   });
 
   it("shows a slug conflict error", async () => {
-    apiMock.tenants.update.mockRejectedValue(
+    apiMock.workspaces.update.mockRejectedValue(
       new ApiError(409, { code: "SLUG_ALREADY_TAKEN", message: "taken" }),
     );
 
-    render(<EditWorkspaceForm tenant={tenant} onDone={onDone} />);
+    render(<EditWorkspaceForm workspace={workspace} onDone={onDone} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

@@ -20,7 +20,7 @@ class ApiKeyUpdate(SQLModel):
 
 class ApiKeyRead(ApiKeyBase):
     id: int
-    tenant_id: int
+    workspace_id: int
     created_at: datetime
     last_used_at: Optional[datetime] = None
 

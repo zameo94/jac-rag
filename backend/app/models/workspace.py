@@ -4,11 +4,11 @@ from typing import Optional
 from sqlalchemy import Column, DateTime, func
 from sqlmodel import Field
 
-from app.schemas.tenant import TenantBase
+from app.schemas.workspace import WorkspaceBase
 
 
-class Tenant(TenantBase, table=True):
-    __tablename__ = "tenants"
+class Workspace(WorkspaceBase, table=True):
+    __tablename__ = "workspaces"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: Optional[datetime] = Field(

@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => {
     const messages: Record<string, string> = {
-      "tenants.noneTitle": "You do not belong to any workspace",
-      "tenants.noneHint": "Get invited or create one.",
-      "tenants.noneCta": "Create or join a workspace",
+      "workspaces.noneTitle": "You do not belong to any workspace",
+      "workspaces.noneHint": "Get invited or create one.",
+      "workspaces.noneCta": "Create or join a workspace",
     };
     return (key: string) => messages[`${namespace}.${key}`] ?? key;
   },

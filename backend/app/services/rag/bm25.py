@@ -21,7 +21,7 @@ from app.services.rag.vector_store import RetrievedChunk, collection_name
 
 TOKEN_RE = re.compile(r"[0-9a-zàèéìòùáíóú]+")
 SCROLL_PAGE = 1000
-MAX_CACHED_TENANTS = 16
+MAX_CACHED_WORKSPACES = 16
 CACHE_REVALIDATE_SECONDS = 30
 
 STOPWORDS = frozenset(
@@ -57,8 +57,8 @@ def tokenize(text: str) -> list[str]:
     return [token for token in TOKEN_RE.findall(text.lower()) if token not in STOPWORDS]
 
 
-async def load_corpus(client: AsyncQdrantClient, tenant_id: int) -> list[CorpusChunk]:
-    name = collection_name(tenant_id)
+async def load_corpus(client: AsyncQdrantClient, workspace_id: int) -> list[CorpusChunk]:
+    name = collection_name(workspace_id)
     if not await client.collection_exists(name):
         return []
     corpus: list[CorpusChunk] = []
@@ -97,7 +97,7 @@ def search(
 
 @dataclass
 class LexicalIndex:
-    """Cached BM25 index for one tenant, valid for ``points_count`` points."""
+    """Cached BM25 index for one workspace, valid for ``points_count`` points."""
 
     points_count: int
     corpus: list[CorpusChunk]
@@ -109,9 +109,9 @@ _cache: OrderedDict[int, LexicalIndex] = OrderedDict()
 _build_lock = asyncio.Lock()
 
 
-def invalidate(tenant_id: int) -> None:
-    """Drop a tenant's cached index after its collection changed."""
-    _cache.pop(tenant_id, None)
+def invalidate(workspace_id: int) -> None:
+    """Drop a workspace's cached index after its collection changed."""
+    _cache.pop(workspace_id, None)
 
 
 def _fresh(entry: LexicalIndex) -> bool:
@@ -121,43 +121,43 @@ def _fresh(entry: LexicalIndex) -> bool:
 
 
 async def get_lexical_index(
-    client: AsyncQdrantClient, tenant_id: int
+    client: AsyncQdrantClient, workspace_id: int
 ) -> LexicalIndex | None:
-    """Return the tenant's BM25 index, rebuilding it when the point count changed.
+    """Return the workspace's BM25 index, rebuilding it when the point count changed.
 
     Writes invalidate the entry explicitly; the ``points_count`` check runs at
     most once per ``CACHE_REVALIDATE_SECONDS`` as a safety net, so the hot path
     is a dict lookup instead of a Qdrant round-trip. The LRU caps the memory.
     """
-    entry = _cache.get(tenant_id)
+    entry = _cache.get(workspace_id)
     if entry is not None and _fresh(entry):
-        _cache.move_to_end(tenant_id)
+        _cache.move_to_end(workspace_id)
         return entry
 
     async with _build_lock:
-        entry = _cache.get(tenant_id)
+        entry = _cache.get(workspace_id)
         if entry is not None and _fresh(entry):
-            _cache.move_to_end(tenant_id)
+            _cache.move_to_end(workspace_id)
             return entry
-        return await _refresh_index(client, tenant_id)
+        return await _refresh_index(client, workspace_id)
 
 
 async def _refresh_index(
-    client: AsyncQdrantClient, tenant_id: int
+    client: AsyncQdrantClient, workspace_id: int
 ) -> LexicalIndex | None:
-    name = collection_name(tenant_id)
+    name = collection_name(workspace_id)
     if not await client.collection_exists(name):
-        _cache.pop(tenant_id, None)
+        _cache.pop(workspace_id, None)
         return None
 
     points_count = (await client.count(name, exact=True)).count
-    entry = _cache.get(tenant_id)
+    entry = _cache.get(workspace_id)
     if entry is not None and entry.points_count == points_count:
         entry.validated_at = time.monotonic()
-        _cache.move_to_end(tenant_id)
+        _cache.move_to_end(workspace_id)
         return entry
 
-    corpus = await load_corpus(client, tenant_id)
+    corpus = await load_corpus(client, workspace_id)
     bm25 = await asyncio.to_thread(_build_bm25, corpus)
     index = LexicalIndex(
         points_count=points_count,
@@ -165,9 +165,9 @@ async def _refresh_index(
         bm25=bm25,
         validated_at=time.monotonic(),
     )
-    _cache[tenant_id] = index
-    _cache.move_to_end(tenant_id)
-    while len(_cache) > MAX_CACHED_TENANTS:
+    _cache[workspace_id] = index
+    _cache.move_to_end(workspace_id)
+    while len(_cache) > MAX_CACHED_WORKSPACES:
         _cache.popitem(last=False)
     return index
 

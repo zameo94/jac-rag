@@ -9,7 +9,7 @@ def test_is_widget_path_matches_prefix_and_subpaths():
 
 def test_is_widget_path_rejects_lookalikes():
     assert is_widget_path("/api/v1/widgets") is False
-    assert is_widget_path("/api/v1/tenants/1/chat") is False
+    assert is_widget_path("/api/v1/workspaces/1/chat") is False
 
 
 async def test_widget_preflight_allows_any_origin_without_credentials(client):

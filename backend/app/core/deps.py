@@ -9,7 +9,7 @@ from app.core import security
 from app.core.datetimes import ensure_aware_utc, utcnow
 from app.core.errors import api_error
 from app.database import get_session
-from app.models import ApiKey, Membership, Tenant, User
+from app.models import ApiKey, Membership, Workspace, User
 from app.schemas.membership import MembershipRole
 from app.services.rate_limit import widget_allowed
 
@@ -80,20 +80,20 @@ async def get_current_user(
 async def load_membership(
     session: AsyncSession,
     user: User,
-    tenant_id: int,
+    workspace_id: int,
 ) -> Membership:
-    tenant = await session.get(Tenant, tenant_id)
-    if tenant is None:
+    workspace = await session.get(Workspace, workspace_id)
+    if workspace is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
-            "TENANT_NOT_FOUND",
-            "Tenant not found",
+            "WORKSPACE_NOT_FOUND",
+            "Workspace not found",
         )
 
     membership = (
         await session.exec(
             select(Membership).where(
-                Membership.tenant_id == tenant_id,
+                Membership.workspace_id == workspace_id,
                 Membership.user_id == user.id,
             )
         )
@@ -103,18 +103,18 @@ async def load_membership(
         raise api_error(
             status.HTTP_403_FORBIDDEN,
             "NOT_A_MEMBER",
-            "You do not have access to this tenant",
+            "You do not have access to this workspace",
         )
 
     return membership
 
 
 async def get_current_membership(
-    tenant_id: int,
+    workspace_id: int,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Membership:
-    return await load_membership(session, current_user, tenant_id)
+    return await load_membership(session, current_user, workspace_id)
 
 
 def require_role(*roles: MembershipRole):
@@ -132,16 +132,16 @@ def require_role(*roles: MembershipRole):
     return dependency
 
 
-def ensure_tenant_active(tenant: Tenant) -> None:
-    if not tenant.is_active:
+def ensure_workspace_active(workspace: Workspace) -> None:
+    if not workspace.is_active:
         raise api_error(
             status.HTTP_403_FORBIDDEN,
-            "TENANT_INACTIVE",
+            "WORKSPACE_INACTIVE",
             "This workspace is disabled",
         )
 
 
-async def resolve_embed_tenant(session: AsyncSession, embed_key: str | None) -> Tenant:
+async def resolve_embed_workspace(session: AsyncSession, embed_key: str | None) -> Workspace:
     if not embed_key:
         raise api_error(
             status.HTTP_401_UNAUTHORIZED,
@@ -168,12 +168,12 @@ async def resolve_embed_tenant(session: AsyncSession, embed_key: str | None) -> 
             "The embed key is disabled",
         )
 
-    tenant = await session.get(Tenant, key.tenant_id)
-    if tenant is None:
+    workspace = await session.get(Workspace, key.workspace_id)
+    if workspace is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
-            "TENANT_NOT_FOUND",
-            "Tenant not found",
+            "WORKSPACE_NOT_FOUND",
+            "Workspace not found",
         )
 
     last_used = ensure_aware_utc(key.last_used_at) if key.last_used_at else None
@@ -181,18 +181,18 @@ async def resolve_embed_tenant(session: AsyncSession, embed_key: str | None) -> 
         key.last_used_at = utcnow()
         session.add(key)
         await session.commit()
-    return tenant
+    return workspace
 
 
-async def get_embed_tenant(
+async def get_embed_workspace(
     x_embed_key: str | None = Header(default=None, alias="X-Embed-Key"),
     session: AsyncSession = Depends(get_session),
-) -> Tenant:
-    return await resolve_embed_tenant(session, x_embed_key)
+) -> Workspace:
+    return await resolve_embed_workspace(session, x_embed_key)
 
 
 async def resolve_widget_visitor(
-    tenant: Tenant, visitor_token: str | None
+    workspace: Workspace, visitor_token: str | None
 ) -> security.VisitorIdentity:
     if not visitor_token:
         raise api_error(
@@ -210,11 +210,11 @@ async def resolve_widget_visitor(
             "The visitor token is invalid or expired",
         )
 
-    if identity.tenant_id != tenant.id:
+    if identity.workspace_id != workspace.id:
         raise api_error(
             status.HTTP_403_FORBIDDEN,
-            "VISITOR_TENANT_MISMATCH",
-            "The visitor token does not belong to this tenant",
+            "VISITOR_WORKSPACE_MISMATCH",
+            "The visitor token does not belong to this workspace",
         )
 
     return identity
@@ -222,16 +222,16 @@ async def resolve_widget_visitor(
 
 async def get_widget_visitor(
     x_visitor_token: str | None = Header(default=None, alias="X-Visitor-Token"),
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
 ) -> security.VisitorIdentity:
-    return await resolve_widget_visitor(tenant, x_visitor_token)
+    return await resolve_widget_visitor(workspace, x_visitor_token)
 
 
 async def enforce_widget_rate_limit(
     x_embed_key: str | None = Header(default=None, alias="X-Embed-Key"),
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
 ) -> None:
-    if not await widget_allowed(x_embed_key, tenant.id):
+    if not await widget_allowed(x_embed_key, workspace.id):
         raise api_error(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "RATE_LIMITED",

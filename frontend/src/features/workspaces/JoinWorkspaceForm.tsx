@@ -4,14 +4,14 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 
 export function JoinWorkspaceForm() {
-  const t = useTranslations("tenants");
+  const t = useTranslations("workspaces");
   const router = useRouter();
-  const { refreshTenants } = useTenant();
+  const { refreshWorkspaces } = useWorkspace();
   const [code, setCode] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -22,7 +22,7 @@ export function JoinWorkspaceForm() {
     setError(null);
     try {
       await api.invitations.accept(code.trim());
-      await refreshTenants();
+      await refreshWorkspaces();
       router.push("/");
     } catch (err) {
       setError(err);

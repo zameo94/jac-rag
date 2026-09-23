@@ -11,7 +11,7 @@ class Document(DocumentBase, table=True):
     __tablename__ = "documents"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: int = Field(foreign_key="tenants.id", ondelete="CASCADE", index=True)
+    workspace_id: int = Field(foreign_key="workspaces.id", ondelete="CASCADE", index=True)
     uploader_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
     storage_path: str = Field(max_length=500)
     created_at: Optional[datetime] = Field(

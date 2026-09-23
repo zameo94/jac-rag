@@ -64,7 +64,7 @@ class StreamingProvider(LLMProvider):
 
 
 def patch_provider(monkeypatch, provider) -> None:
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return provider, "test-model"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -83,17 +83,17 @@ async def qdrant():
     app.dependency_overrides.pop(chat_module.get_vector_client, None)
 
 
-async def create_tenant(client, headers, name: str = "Acme") -> int:
-    response = await client.post("/api/v1/tenants", json={"name": name}, headers=headers)
+async def create_workspace(client, headers, name: str = "Acme") -> int:
+    response = await client.post("/api/v1/workspaces", json={"name": name}, headers=headers)
     assert response.status_code == 201
     return response.json()["id"]
 
 
-async def index_texts(qdrant, tenant_id: int, texts) -> None:
+async def index_texts(qdrant, workspace_id: int, texts) -> None:
     vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
-        tenant_id,
+        workspace_id,
         1,
         "doc.md",
         [(index, text) for index, text in enumerate(texts)],
@@ -105,13 +105,13 @@ async def test_stream_emits_sources_tokens_and_done(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = StreamingProvider()
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY},
         headers=headers,
     )
@@ -137,12 +137,12 @@ async def test_stream_strict_refusal_without_context(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-refusal@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     provider = StreamingProvider()
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": "Domanda senza contesto"},
         headers=headers,
     )
@@ -160,13 +160,13 @@ async def test_stream_provider_error_mid_stream(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-error@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = StreamingProvider(pieces=("A", "B"), fail_after=1)
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY},
         headers=headers,
     )
@@ -187,13 +187,13 @@ async def test_stream_internal_error_mid_stream(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-internal@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = StreamingProvider(pieces=("A", "B"), internal_fail_after=1)
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY},
         headers=headers,
     )
@@ -214,13 +214,13 @@ async def test_stream_internal_error_before_first_token_hides_details(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-internal-early@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = StreamingProvider(pieces=("A",), internal_fail_after=0)
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY},
         headers=headers,
     )
@@ -238,7 +238,7 @@ async def test_stream_rejects_disabled_provider_before_stream(
     client, qdrant, session_factory
 ):
     headers = await register_and_login(client, "stream-disabled@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     user_id = await user_id_for(client, headers)
     async with session_factory() as session:
         session.add(
@@ -253,7 +253,7 @@ async def test_stream_rejects_disabled_provider_before_stream(
         await session.commit()
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": "ciao"},
         headers=headers,
     )
@@ -264,7 +264,7 @@ async def test_stream_rejects_disabled_provider_before_stream(
 
 async def test_stream_requires_authentication(client, qdrant):
     response = await client.post(
-        "/api/v1/tenants/1/chat/stream", json={"message": "ciao"}
+        "/api/v1/workspaces/1/chat/stream", json={"message": "ciao"}
     )
 
     assert response.status_code == 401
@@ -272,11 +272,11 @@ async def test_stream_requires_authentication(client, qdrant):
 
 async def test_stream_rejects_non_member(client, qdrant):
     owner_headers = await register_and_login(client, "stream-a@example.com")
-    tenant_id = await create_tenant(client, owner_headers)
+    workspace_id = await create_workspace(client, owner_headers)
     other_headers = await register_and_login(client, "stream-b@example.com")
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": "ciao"},
         headers=other_headers,
     )
@@ -289,13 +289,13 @@ async def test_stream_reuses_conversation_with_history(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "stream-history@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = StreamingProvider()
     patch_provider(monkeypatch, provider)
 
     await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY},
         headers=headers,
     )
@@ -303,7 +303,7 @@ async def test_stream_reuses_conversation_with_history(
         conversation_id = (await session.exec(select(Conversation))).one().id
 
     await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        f"/api/v1/workspaces/{workspace_id}/chat/stream",
         json={"message": QUERY, "conversation_id": conversation_id},
         headers=headers,
     )
@@ -321,16 +321,16 @@ async def test_stream_disconnect_persists_partial_reply(
 ):
     import asyncio
 
-    from app.schemas.tenant import AnswerMode
+    from app.schemas.workspace import AnswerMode
     from app.services.rag.chat.execute import stream_events
     from app.services.rag.chat.prepare import PreparedChat
 
     headers = await register_and_login(client, "stream-conn@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     user_id = await user_id_for(client, headers)
     async with session_factory() as session:
         conversation = Conversation(
-            tenant_id=tenant_id, user_id=user_id, title="test"
+            workspace_id=workspace_id, user_id=user_id, title="test"
         )
         session.add(conversation)
         await session.commit()

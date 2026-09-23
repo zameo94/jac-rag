@@ -5,7 +5,7 @@ from starlette.requests import Request
 
 from app.core import security
 from app.core.deps import authenticate_user, load_membership
-from app.models import Membership, Tenant, User
+from app.models import Membership, Workspace, User
 from app.schemas.membership import MembershipRole
 
 
@@ -28,20 +28,20 @@ async def add_user(
         return user
 
 
-async def add_tenant(session_factory, name: str = "Acme") -> Tenant:
+async def add_workspace(session_factory, name: str = "Acme") -> Workspace:
     async with session_factory() as session:
-        tenant = Tenant(name=name, slug=name.lower())
-        session.add(tenant)
+        workspace = Workspace(name=name, slug=name.lower())
+        session.add(workspace)
         await session.commit()
-        await session.refresh(tenant)
-        return tenant
+        await session.refresh(workspace)
+        return workspace
 
 
 async def add_membership(
-    session_factory, user_id: int, tenant_id: int, role: MembershipRole = MembershipRole.OWNER
+    session_factory, user_id: int, workspace_id: int, role: MembershipRole = MembershipRole.OWNER
 ) -> Membership:
     async with session_factory() as session:
-        membership = Membership(user_id=user_id, tenant_id=tenant_id, role=role)
+        membership = Membership(user_id=user_id, workspace_id=workspace_id, role=role)
         session.add(membership)
         await session.commit()
         await session.refresh(membership)
@@ -101,17 +101,17 @@ async def test_authenticate_user_disabled_account(session_factory):
 
 async def test_load_membership_returns_membership(session_factory):
     user = await add_user(session_factory)
-    tenant = await add_tenant(session_factory)
-    membership = await add_membership(session_factory, user.id, tenant.id)
+    workspace = await add_workspace(session_factory)
+    membership = await add_membership(session_factory, user.id, workspace.id)
 
     async with session_factory() as session:
-        result = await load_membership(session, user, tenant.id)
+        result = await load_membership(session, user, workspace.id)
 
     assert result.id == membership.id
     assert result.role is MembershipRole.OWNER
 
 
-async def test_load_membership_missing_tenant(session_factory):
+async def test_load_membership_missing_workspace(session_factory):
     user = await add_user(session_factory)
 
     async with session_factory() as session:
@@ -119,16 +119,16 @@ async def test_load_membership_missing_tenant(session_factory):
             await load_membership(session, user, 123456)
 
     assert exc.value.status_code == 404
-    assert exc.value.detail["code"] == "TENANT_NOT_FOUND"
+    assert exc.value.detail["code"] == "WORKSPACE_NOT_FOUND"
 
 
 async def test_load_membership_not_a_member(session_factory):
     user = await add_user(session_factory)
-    tenant = await add_tenant(session_factory)
+    workspace = await add_workspace(session_factory)
 
     async with session_factory() as session:
         with pytest.raises(HTTPException) as exc:
-            await load_membership(session, user, tenant.id)
+            await load_membership(session, user, workspace.id)
 
     assert exc.value.status_code == 403
     assert exc.value.detail["code"] == "NOT_A_MEMBER"

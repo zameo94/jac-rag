@@ -4,16 +4,16 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { BackLink } from "@/components/BackLink";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { CreateWorkspaceForm } from "@/features/workspaces/CreateWorkspaceForm";
 import { JoinWorkspaceForm } from "@/features/workspaces/JoinWorkspaceForm";
 
 export default function NewWorkspacePage() {
-  const t = useTranslations("tenants");
-  const { tenants } = useTenant();
+  const t = useTranslations("workspaces");
+  const { workspaces } = useWorkspace();
   const [tab, setTab] = useState<"create" | "join">("create");
 
-  const backHref = tenants.length > 0 ? "/dashboard/workspaces" : "/dashboard";
+  const backHref = workspaces.length > 0 ? "/dashboard/workspaces" : "/dashboard";
 
   return (
     <section className="mx-auto max-w-md">

@@ -5,14 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OptionsMenu } from "@/features/navigation/OptionsMenu";
 
 const logout = vi.fn();
-const selectTenant = vi.fn();
+const selectWorkspace = vi.fn();
 
 const state = vi.hoisted(() => ({
-  tenants: [
+  workspaces: [
     { id: 1, name: "Acme", slug: "acme" },
     { id: 2, name: "Beta", slug: "beta" },
   ] as { id: number; name: string; slug: string }[],
-  activeTenantId: 1,
+  activeWorkspaceId: 1,
 }));
 
 vi.mock("next-intl", () => ({
@@ -26,7 +26,7 @@ vi.mock("next-intl", () => ({
       "nav.settings": "Settings",
       "nav.workspaces": "Workspaces",
       "auth.logout": "Log out",
-      "tenants.switch": "Switch workspace",
+      "workspaces.switch": "Switch workspace",
     };
     return (key: string) => messages[`${namespace}.${key}`] ?? key;
   },
@@ -45,19 +45,19 @@ vi.mock("@/features/auth/AuthProvider", () => ({
   useAuth: () => ({ logout }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({
-    tenants: state.tenants,
-    activeTenant: state.tenants.find((tenant) => tenant.id === state.activeTenantId),
-    selectTenant,
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({
+    workspaces: state.workspaces,
+    activeWorkspace: state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId),
+    selectWorkspace,
   }),
 }));
 
 beforeEach(() => {
   logout.mockClear();
-  selectTenant.mockClear();
-  state.activeTenantId = 1;
-  state.tenants = [
+  selectWorkspace.mockClear();
+  state.activeWorkspaceId = 1;
+  state.workspaces = [
     { id: 1, name: "Acme", slug: "acme" },
     { id: 2, name: "Beta", slug: "beta" },
   ];
@@ -99,7 +99,7 @@ describe("OptionsMenu", () => {
   });
 
   it("hides the workspace links for a guest", async () => {
-    state.tenants = [];
+    state.workspaces = [];
     const user = userEvent.setup();
     render(<OptionsMenu />);
 
@@ -109,7 +109,7 @@ describe("OptionsMenu", () => {
     expect(screen.getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
   });
 
-  it("lists tenants and marks the active one", async () => {
+  it("lists workspaces and marks the active one", async () => {
     const user = userEvent.setup();
     render(<OptionsMenu />);
 
@@ -121,14 +121,14 @@ describe("OptionsMenu", () => {
     expect(beta).toHaveAttribute("aria-checked", "false");
   });
 
-  it("switches tenant and closes the menu", async () => {
+  it("switches workspace and closes the menu", async () => {
     const user = userEvent.setup();
     render(<OptionsMenu />);
 
     await user.click(screen.getByRole("button", { name: "Menu" }));
     await user.click(screen.getByRole("menuitemradio", { name: "Beta" }));
 
-    expect(selectTenant).toHaveBeenCalledWith(2);
+    expect(selectWorkspace).toHaveBeenCalledWith(2);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 

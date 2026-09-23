@@ -21,7 +21,7 @@ def validate_assignable_role(value: MembershipRole) -> MembershipRole:
 
 class MembershipBase(SQLModel):
     user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
-    tenant_id: int = Field(foreign_key="tenants.id", ondelete="CASCADE")
+    workspace_id: int = Field(foreign_key="workspaces.id", ondelete="CASCADE")
     role: MembershipRole = Field(
         sa_column=Column(SAEnum(MembershipRole, native_enum=False), nullable=False),
     )
@@ -38,7 +38,7 @@ class MembershipRead(MembershipBase):
 class MemberRead(SQLModel):
     id: int
     user_id: int
-    tenant_id: int
+    workspace_id: int
     role: MembershipRole
     email: EmailStr
     created_at: datetime

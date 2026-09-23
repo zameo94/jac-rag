@@ -5,11 +5,16 @@ export function widgetScriptUrl(): string | null {
   return url ? url : null;
 }
 
-export function widgetSnippet(embedKey: string, scriptUrl: string): string {
+export function widgetSnippet(
+  embedKey: string,
+  scriptUrl: string,
+  locale: string,
+): string {
   return [
     "<script",
     `  src="${scriptUrl}"`,
     `  data-embed-key="${embedKey}"`,
+    `  data-locale="${locale}"`,
     "  defer",
     "></script>",
   ].join("\n");

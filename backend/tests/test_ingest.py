@@ -20,16 +20,16 @@ async def qdrant():
 
 async def make_document(
     session_factory,
-    tenant_id=1,
+    workspace_id=1,
     uploader_id=1,
     filename="doc.txt",
     mime="text/plain",
     content=b"contenuto di prova " * 20,
 ):
-    storage_path = storage.save_upload(tenant_id, f"{filename}", content)
+    storage_path = storage.save_upload(workspace_id, f"{filename}", content)
     async with session_factory() as session:
         document = Document(
-            tenant_id=tenant_id,
+            workspace_id=workspace_id,
             uploader_id=uploader_id,
             filename=filename,
             mime=mime,
@@ -65,8 +65,8 @@ async def test_ingestion_stores_chunks_in_qdrant(session_factory, qdrant):
 
     await run_ingestion(document_id, session_factory, qdrant)
 
-    assert await qdrant.collection_exists("tenant_1")
-    info = await qdrant.get_collection("tenant_1")
+    assert await qdrant.collection_exists("workspace_1")
+    info = await qdrant.get_collection("workspace_1")
     assert info.points_count == (await load_document(session_factory, document_id)).chunk_count
 
 
@@ -89,7 +89,7 @@ async def test_ingestion_replaces_previous_chunks(session_factory, qdrant):
 
     await run_ingestion(document_id, session_factory, qdrant)
 
-    info = await qdrant.get_collection("tenant_1")
+    info = await qdrant.get_collection("workspace_1")
     assert info.points_count == first_count
 
 
@@ -131,15 +131,15 @@ async def test_ingestion_returns_not_found_for_missing_document(session_factory,
     assert result == "not_found"
 
 
-async def test_ingestion_isolates_tenants(session_factory, qdrant):
-    doc_one = await make_document(session_factory, tenant_id=1, filename="one.txt")
-    doc_two = await make_document(session_factory, tenant_id=2, filename="two.txt")
+async def test_ingestion_isolates_workspaces(session_factory, qdrant):
+    doc_one = await make_document(session_factory, workspace_id=1, filename="one.txt")
+    doc_two = await make_document(session_factory, workspace_id=2, filename="two.txt")
 
     await run_ingestion(doc_one, session_factory, qdrant)
     await run_ingestion(doc_two, session_factory, qdrant)
 
-    assert await qdrant.collection_exists("tenant_1")
-    assert await qdrant.collection_exists("tenant_2")
+    assert await qdrant.collection_exists("workspace_1")
+    assert await qdrant.collection_exists("workspace_2")
 
 
 async def test_ingestion_stores_structure_metadata(session_factory, qdrant):
@@ -154,7 +154,7 @@ async def test_ingestion_stores_structure_metadata(session_factory, qdrant):
 
     await run_ingestion(document_id, session_factory, qdrant)
 
-    points, _ = await qdrant.scroll("tenant_1", limit=100, with_payload=True)
+    points, _ = await qdrant.scroll("workspace_1", limit=100, with_payload=True)
     table_points = [
         point
         for point in points
@@ -179,7 +179,7 @@ async def test_ingestion_preserves_every_table_row(session_factory, qdrant):
 
     await run_ingestion(document_id, session_factory, qdrant)
 
-    points, _ = await qdrant.scroll("tenant_1", limit=100, with_payload=True)
+    points, _ = await qdrant.scroll("workspace_1", limit=100, with_payload=True)
     combined = "\n".join(point.payload.get("text", "") for point in points if point.payload)
     for index in range(1, 9):
         assert f"Nome: P{index}" in combined or f"P{index}" in combined

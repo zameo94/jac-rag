@@ -9,7 +9,7 @@ from app.services.rag.vector_store import RetrievedChunk
 
 async def retrieve_chunks(
     client: AsyncQdrantClient,
-    tenant_id: int,
+    workspace_id: int,
     query: str,
     *,
     top_k: int | None = None,
@@ -17,11 +17,11 @@ async def retrieve_chunks(
     settings = get_settings()
     limit = top_k or settings.retrieval_top_k
     vector = await embeddings.embed_query(query)
-    dense = await vector_store.search_chunks(client, tenant_id, vector, limit)
+    dense = await vector_store.search_chunks(client, workspace_id, vector, limit)
     if not settings.hybrid_enabled:
         return dense
 
-    index = await bm25.get_lexical_index(client, tenant_id)
+    index = await bm25.get_lexical_index(client, workspace_id)
     lexical = bm25.search_index(index, query, limit) if index is not None else []
     return bm25.reciprocal_rank_fusion(dense, lexical, limit=limit, k=settings.rrf_k)
 

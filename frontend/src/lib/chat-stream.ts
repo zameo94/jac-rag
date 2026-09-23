@@ -64,13 +64,13 @@ function dispatch(event: ParsedEvent, handlers: ChatStreamHandlers): void {
 }
 
 export async function streamChat(
-  tenantId: number,
+  workspaceId: number,
   message: string,
   handlers: ChatStreamHandlers,
   conversationId?: number | null,
 ): Promise<void> {
   const response = await fetch(
-    `/api/chat-stream?tenantId=${encodeURIComponent(String(tenantId))}`,
+    `/api/chat-stream?workspaceId=${encodeURIComponent(String(workspaceId))}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

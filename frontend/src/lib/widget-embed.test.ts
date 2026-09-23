@@ -27,16 +27,18 @@ describe("widgetScriptUrl", () => {
 });
 
 describe("widgetSnippet", () => {
-  it("builds a script tag with the url and the key", () => {
+  it("builds a script tag with the url, the key and the locale", () => {
     const snippet = widgetSnippet(
       EMBED_KEY_PLACEHOLDER,
       "https://widget.example.com/embed-rag-chatbot.js",
+      "en",
     );
 
     expect(snippet).toContain(
       'src="https://widget.example.com/embed-rag-chatbot.js"',
     );
     expect(snippet).toContain(`data-embed-key="${EMBED_KEY_PLACEHOLDER}"`);
+    expect(snippet).toContain('data-locale="en"');
     expect(snippet).toContain("defer");
     expect(snippet).not.toContain("data-api-url");
   });

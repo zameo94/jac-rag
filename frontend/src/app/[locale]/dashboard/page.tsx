@@ -1,17 +1,17 @@
 "use client";
 
 import { DashboardOverview } from "@/features/home/DashboardOverview";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { NoWorkspaceGate } from "@/features/workspaces/NoWorkspaceGate";
 
 export default function DashboardPage() {
-  const { tenants, loading } = useTenant();
+  const { workspaces, loading } = useWorkspace();
 
   if (loading) {
     return <p className="text-slate-500">...</p>;
   }
 
-  if (tenants.length === 0) {
+  if (workspaces.length === 0) {
     return <NoWorkspaceGate />;
   }
 

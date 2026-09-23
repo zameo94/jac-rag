@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { ApiError } from "@/lib/api-error";
 import { streamChat } from "@/lib/chat-stream";
 import type { ChatSource } from "@/lib/types";
@@ -17,14 +17,14 @@ interface Turn {
 
 export function ChatPanel() {
   const t = useTranslations("chat");
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
   const [conversationId, setConversationId] = useState<number | null>(null);
 
   function updateLast(update: (turn: Turn) => Turn) {
@@ -44,7 +44,7 @@ export function ChatPanel() {
   }
 
   async function send() {
-    if (!tenantId || !message.trim() || sending) return;
+    if (!workspaceId || !message.trim() || sending) return;
     const question = message.trim();
     const resumeConversationId = conversationId;
     setMessage("");
@@ -59,7 +59,7 @@ export function ChatPanel() {
 
     try {
       await streamChat(
-        tenantId,
+        workspaceId,
         question,
         {
           onSources: (payload) => {

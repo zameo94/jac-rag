@@ -5,7 +5,7 @@ from .invitation import Invitation
 from .membership import Membership
 from .message import Message
 from .setting import Setting
-from .tenant import Tenant
+from .workspace import Workspace
 from .user import User
 
 __all__ = [
@@ -16,6 +16,6 @@ __all__ = [
     "Membership",
     "Message",
     "Setting",
-    "Tenant",
+    "Workspace",
     "User",
 ]

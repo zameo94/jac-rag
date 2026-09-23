@@ -15,22 +15,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("tenants api", () => {
-  it("lists tenants", async () => {
+describe("workspaces api", () => {
+  it("lists workspaces", async () => {
     const fetchMock = mockFetch(200, [{ id: 1, name: "Acme" }]);
     vi.stubGlobal("fetch", fetchMock);
 
-    const tenants = await api.tenants.list();
+    const workspaces = await api.workspaces.list();
 
-    expect(tenants).toHaveLength(1);
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants");
+    expect(workspaces).toHaveLength(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces");
   });
 
-  it("creates a tenant sending a null slug when omitted", async () => {
+  it("creates a workspace sending a null slug when omitted", async () => {
     const fetchMock = mockFetch(201, { id: 1 });
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.tenants.create("Acme", "", "it", "assistive");
+    await api.workspaces.create("Acme", "", "it", "assistive");
 
     const [, init] = fetchMock.mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({
@@ -41,26 +41,26 @@ describe("tenants api", () => {
     });
   });
 
-  it("updates a tenant", async () => {
+  it("updates a workspace", async () => {
     const fetchMock = mockFetch(200, { id: 1 });
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.tenants.update(1, { name: "New", slug: "new" });
+    await api.workspaces.update(1, { name: "New", slug: "new" });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1");
+    expect(url).toContain("/workspaces/1");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ name: "New", slug: "new" });
   });
 
-  it("deletes a tenant", async () => {
+  it("deletes a workspace", async () => {
     const fetchMock = mockFetch(204, null);
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.tenants.remove(1);
+    await api.workspaces.remove(1);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1");
+    expect(url).toContain("/workspaces/1");
     expect(init.method).toBe("DELETE");
   });
 });
@@ -70,7 +70,7 @@ describe("members api", () => {
     const fetchMock = mockFetch(200, {
       id: 3,
       user_id: 1,
-      tenant_id: 2,
+      workspace_id: 2,
       role: "ADMIN",
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -78,7 +78,7 @@ describe("members api", () => {
     const membership = await api.members.me(2);
 
     expect(membership.role).toBe("ADMIN");
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/2/me");
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces/2/me");
   });
 
   it("updates a member role with PATCH", async () => {
@@ -88,7 +88,7 @@ describe("members api", () => {
     await api.members.updateRole(1, 2, "ADMIN");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1/members/2");
+    expect(url).toContain("/workspaces/1/members/2");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ role: "ADMIN" });
   });
@@ -100,7 +100,7 @@ describe("members api", () => {
     await api.members.remove(1, 2);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1/members/2");
+    expect(url).toContain("/workspaces/1/members/2");
     expect(init.method).toBe("DELETE");
   });
 });
@@ -113,7 +113,7 @@ describe("invitations api", () => {
     await api.invitations.create(1, "a@b.it", "ADMIN");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1/invitations");
+    expect(url).toContain("/workspaces/1/invitations");
     expect(JSON.parse(init.body)).toEqual({ email: "a@b.it", role: "ADMIN" });
   });
 
@@ -130,13 +130,13 @@ describe("invitations api", () => {
 });
 
 describe("documents api", () => {
-  it("lists documents for a tenant", async () => {
+  it("lists documents for a workspace", async () => {
     const fetchMock = mockFetch(200, []);
     vi.stubGlobal("fetch", fetchMock);
 
     await api.documents.list(3);
 
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/3/documents");
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces/3/documents");
   });
 
   it("fetches a single document status", async () => {
@@ -146,7 +146,7 @@ describe("documents api", () => {
     const doc = await api.documents.get(3, 5);
 
     expect(doc.status).toBe("ready");
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/3/documents/5");
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces/3/documents/5");
   });
 });
 
@@ -162,7 +162,7 @@ describe("llm api", () => {
 
     await api.llm.config(2);
 
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/2/llm/config");
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces/2/llm/config");
   });
 
   it("updates llm settings with PUT", async () => {
@@ -172,7 +172,7 @@ describe("llm api", () => {
     await api.llm.updateSettings(2, { allowed_providers: ["ollama"] });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/2/llm/settings");
+    expect(url).toContain("/workspaces/2/llm/settings");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ allowed_providers: ["ollama"] });
   });
@@ -184,7 +184,7 @@ describe("llm api", () => {
     await api.llm.selectProvider(2, "external_api");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/2/llm/provider");
+    expect(url).toContain("/workspaces/2/llm/provider");
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ provider_id: "external_api" });
   });
@@ -198,7 +198,7 @@ describe("api keys api", () => {
     await api.apiKeys.create(3, "Widget");
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/3/api-keys");
+    expect(url).toContain("/workspaces/3/api-keys");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ name: "Widget" });
   });
@@ -210,20 +210,20 @@ describe("api keys api", () => {
     await api.apiKeys.setActive(3, 1, false);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/3/api-keys/1");
+    expect(url).toContain("/workspaces/3/api-keys/1");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ is_active: false });
   });
 });
 
 describe("conversations api", () => {
-  it("lists tenant conversations", async () => {
+  it("lists workspace conversations", async () => {
     const fetchMock = mockFetch(200, []);
     vi.stubGlobal("fetch", fetchMock);
 
     await api.conversations.list(3);
 
-    expect(fetchMock.mock.calls[0][0]).toContain("/tenants/3/conversations");
+    expect(fetchMock.mock.calls[0][0]).toContain("/workspaces/3/conversations");
   });
 
   it("deletes a conversation", async () => {
@@ -233,7 +233,7 @@ describe("conversations api", () => {
     await api.conversations.remove(3, 9);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/3/conversations/9");
+    expect(url).toContain("/workspaces/3/conversations/9");
     expect(init.method).toBe("DELETE");
   });
 });
@@ -246,7 +246,7 @@ describe("chat api", () => {
     await api.chat.send(3, "ciao", 5);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/3/chat");
+    expect(url).toContain("/workspaces/3/chat");
     expect(JSON.parse(init.body)).toEqual({ message: "ciao", conversation_id: 5 });
   });
 });

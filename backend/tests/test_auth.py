@@ -341,3 +341,49 @@ async def deactivate(session_factory, email: str) -> None:
         user.is_active = False
         session.add(user)
         await session.commit()
+
+
+async def test_update_me_changes_locale(client):
+    await do_register(client)
+    await do_login(client)
+
+    response = await client.patch(ME_URL, json={"locale": "en"})
+
+    assert response.status_code == 200
+    assert response.json()["locale"] == "en"
+
+
+async def test_update_me_normalizes_locale(client):
+    await do_register(client)
+    await do_login(client)
+
+    response = await client.patch(ME_URL, json={"locale": "EN"})
+
+    assert response.status_code == 200
+    assert response.json()["locale"] == "en"
+
+
+async def test_update_me_persists_locale(client, session_factory):
+    await do_register(client)
+    await do_login(client)
+
+    await client.patch(ME_URL, json={"locale": "en"})
+
+    user = await get_user(session_factory, REGISTER["email"])
+    assert user.locale == "en"
+
+
+async def test_update_me_rejects_unsupported_locale(client):
+    await do_register(client)
+    await do_login(client)
+
+    response = await client.patch(ME_URL, json={"locale": "fr"})
+
+    assert response.status_code == 422
+
+
+async def test_update_me_requires_authentication(client):
+    response = await client.patch(ME_URL, json={"locale": "en"})
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "NOT_AUTHENTICATED"

@@ -18,21 +18,21 @@ class Conversation(ConversationBase, table=True):
             name="ck_conversations_single_actor",
         ),
         Index(
-            "ix_conversations_tenant_end_user",
-            "tenant_id",
+            "ix_conversations_workspace_end_user",
+            "workspace_id",
             "end_user_id",
             "updated_at",
         ),
         Index(
-            "ix_conversations_tenant_user",
-            "tenant_id",
+            "ix_conversations_workspace_user",
+            "workspace_id",
             "user_id",
             "updated_at",
         ),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: int = Field(foreign_key="tenants.id", ondelete="CASCADE")
+    workspace_id: int = Field(foreign_key="workspaces.id", ondelete="CASCADE")
     user_id: Optional[int] = Field(
         default=None, foreign_key="users.id", ondelete="CASCADE"
     )

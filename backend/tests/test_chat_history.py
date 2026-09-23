@@ -48,17 +48,17 @@ async def qdrant():
     app.dependency_overrides.pop(chat_module.get_vector_client, None)
 
 
-async def create_tenant(client, headers, name: str = "Acme") -> int:
-    response = await client.post("/api/v1/tenants", json={"name": name}, headers=headers)
+async def create_workspace(client, headers, name: str = "Acme") -> int:
+    response = await client.post("/api/v1/workspaces", json={"name": name}, headers=headers)
     assert response.status_code == 201
     return response.json()["id"]
 
 
-async def index_texts(qdrant, tenant_id: int, texts) -> None:
+async def index_texts(qdrant, workspace_id: int, texts) -> None:
     vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
-        tenant_id,
+        workspace_id,
         1,
         "doc.md",
         [(index, text) for index, text in enumerate(texts)],
@@ -67,7 +67,7 @@ async def index_texts(qdrant, tenant_id: int, texts) -> None:
 
 
 def patch_provider(monkeypatch, provider) -> None:
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return provider, "test-model"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -81,13 +81,13 @@ async def test_chat_creates_conversation_and_messages(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "history-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     owner_id = await user_id_for(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     patch_provider(monkeypatch, FakeProvider())
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=headers
     )
 
     assert response.status_code == 200
@@ -110,19 +110,19 @@ async def test_chat_reuses_conversation_and_sends_history(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "history-reuse@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
 
     first = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=headers
     )
     async with session_factory() as session:
         conversation_id = (await session.exec(select(Conversation))).one().id
 
     second = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY, "conversation_id": conversation_id},
         headers=headers,
     )
@@ -146,11 +146,11 @@ async def test_chat_rejects_another_actors_conversation(
     client, qdrant, session_factory, monkeypatch
 ):
     owner_headers = await register_and_login(client, "history-a@example.com")
-    tenant_id = await create_tenant(client, owner_headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, owner_headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     patch_provider(monkeypatch, FakeProvider())
     await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=owner_headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=owner_headers
     )
     async with session_factory() as session:
         conversation_id = (await session.exec(select(Conversation))).one().id
@@ -160,13 +160,13 @@ async def test_chat_rejects_another_actors_conversation(
     async with session_factory() as session:
         session.add(
             Membership(
-                user_id=other_id, tenant_id=tenant_id, role=MembershipRole.MEMBER
+                user_id=other_id, workspace_id=workspace_id, role=MembershipRole.MEMBER
             )
         )
         await session.commit()
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": "ciao", "conversation_id": conversation_id},
         headers=other_headers,
     )
@@ -179,12 +179,12 @@ async def test_chat_strict_refusal_is_persisted(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "history-refusal@example.com")
-    tenant_id = await create_tenant(client, headers)
+    workspace_id = await create_workspace(client, headers)
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": "Domanda senza contesto"},
         headers=headers,
     )
@@ -203,12 +203,12 @@ async def test_chat_provider_failure_persists_error_message(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "history-error@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     patch_provider(monkeypatch, FailingProvider())
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=headers
     )
 
     assert response.status_code == 503
@@ -227,20 +227,20 @@ async def test_history_is_limited_by_setting(
     monkeypatch.setenv("CHAT_HISTORY_LIMIT", "2")
     get_settings.cache_clear()
     headers = await register_and_login(client, "history-limit@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
 
     await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=headers
     )
     async with session_factory() as session:
         conversation_id = (await session.exec(select(Conversation))).one().id
 
     for _ in range(3):
         await client.post(
-            f"/api/v1/tenants/{tenant_id}/chat",
+            f"/api/v1/workspaces/{workspace_id}/chat",
             json={"message": QUERY, "conversation_id": conversation_id},
             headers=headers,
         )
@@ -252,12 +252,12 @@ async def test_history_skips_failed_assistant_messages(
     client, qdrant, session_factory, monkeypatch
 ):
     headers = await register_and_login(client, "history-skip-errors@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
 
     patch_provider(monkeypatch, FailingProvider())
     first = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat", json={"message": QUERY}, headers=headers
+        f"/api/v1/workspaces/{workspace_id}/chat", json={"message": QUERY}, headers=headers
     )
     async with session_factory() as session:
         conversation_id = (await session.exec(select(Conversation))).one().id
@@ -265,7 +265,7 @@ async def test_history_skips_failed_assistant_messages(
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
     second = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY, "conversation_id": conversation_id},
         headers=headers,
     )

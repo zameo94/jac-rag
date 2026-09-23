@@ -36,7 +36,7 @@ class DocumentBase(SQLModel):
 
 class DocumentRead(DocumentBase):
     id: int
-    tenant_id: int
+    workspace_id: int
     uploader_id: int
 
 

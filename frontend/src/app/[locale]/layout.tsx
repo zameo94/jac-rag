@@ -10,7 +10,7 @@ import "../globals.css";
 
 export const metadata: Metadata = {
   title: "jac-rag",
-  description: "Multi-tenant RAG platform",
+  description: "Multi-workspace RAG platform",
 };
 
 export function generateStaticParams() {

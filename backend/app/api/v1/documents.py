@@ -24,12 +24,12 @@ UPLOAD_READ_CHUNK = 1024 * 1024
 
 
 @router.post(
-    "/{tenant_id}/documents",
+    "/{workspace_id}/documents",
     response_model=DocumentRead,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
-    tenant_id: int,
+    workspace_id: int,
     request: Request,
     file: UploadFile = File(...),
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
@@ -80,10 +80,10 @@ async def upload_document(
         )
 
     stored_name = f"{uuid.uuid4().hex}{Path(file.filename or '').suffix.lower()}"
-    storage_path = storage.save_upload(tenant_id, stored_name, bytes(content))
+    storage_path = storage.save_upload(workspace_id, stored_name, bytes(content))
 
     document = Document(
-        tenant_id=tenant_id,
+        workspace_id=workspace_id,
         uploader_id=membership.user_id,
         filename=file.filename or stored_name,
         mime=mime,
@@ -99,29 +99,29 @@ async def upload_document(
     return document
 
 
-@router.get("/{tenant_id}/documents", response_model=List[DocumentRead])
+@router.get("/{workspace_id}/documents", response_model=List[DocumentRead])
 async def list_documents(
-    tenant_id: int,
+    workspace_id: int,
     membership: Membership = Depends(get_current_membership),
     session: AsyncSession = Depends(get_session),
 ) -> List[Document]:
     statement = (
         select(Document)
-        .where(Document.tenant_id == tenant_id)
+        .where(Document.workspace_id == workspace_id)
         .order_by(Document.id.desc())
     )
     return (await session.exec(statement)).all()
 
 
-@router.get("/{tenant_id}/documents/{document_id}", response_model=DocumentStatusRead)
+@router.get("/{workspace_id}/documents/{document_id}", response_model=DocumentStatusRead)
 async def get_document_status(
-    tenant_id: int,
+    workspace_id: int,
     document_id: int,
     membership: Membership = Depends(get_current_membership),
     session: AsyncSession = Depends(get_session),
 ) -> Document:
     document = await session.get(Document, document_id)
-    if document is None or document.tenant_id != tenant_id:
+    if document is None or document.workspace_id != workspace_id:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "DOCUMENT_NOT_FOUND",
@@ -130,15 +130,15 @@ async def get_document_status(
     return document
 
 
-@router.get("/{tenant_id}/documents/{document_id}/file")
+@router.get("/{workspace_id}/documents/{document_id}/file")
 async def download_document(
-    tenant_id: int,
+    workspace_id: int,
     document_id: int,
     membership: Membership = Depends(get_current_membership),
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
     document = await session.get(Document, document_id)
-    if document is None or document.tenant_id != tenant_id:
+    if document is None or document.workspace_id != workspace_id:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "DOCUMENT_NOT_FOUND",
@@ -162,17 +162,17 @@ async def download_document(
 
 
 @router.delete(
-    "/{tenant_id}/documents/{document_id}",
+    "/{workspace_id}/documents/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_document(
-    tenant_id: int,
+    workspace_id: int,
     document_id: int,
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     document = await session.get(Document, document_id)
-    if document is None or document.tenant_id != tenant_id:
+    if document is None or document.workspace_id != workspace_id:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "DOCUMENT_NOT_FOUND",
@@ -183,8 +183,8 @@ async def delete_document(
 
     client = vector_store.get_qdrant_client()
     try:
-        await vector_store.delete_document_chunks(client, tenant_id, document_id)
-        bm25.invalidate(tenant_id)
+        await vector_store.delete_document_chunks(client, workspace_id, document_id)
+        bm25.invalidate(workspace_id)
     finally:
         await client.close()
 

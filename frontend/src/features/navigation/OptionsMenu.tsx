@@ -13,15 +13,15 @@ import {
   WorkspacesIcon,
 } from "@/components/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { Link, usePathname } from "@/i18n/navigation";
 
 export function OptionsMenu() {
   const t = useTranslations("nav");
   const auth = useTranslations("auth");
-  const tenantsLabels = useTranslations("tenants");
+  const workspacesLabels = useTranslations("workspaces");
   const { logout } = useAuth();
-  const { tenants, activeTenant, selectTenant } = useTenant();
+  const { workspaces, activeWorkspace, selectWorkspace } = useWorkspace();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,7 +82,7 @@ export function OptionsMenu() {
           role="menu"
           className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {tenants.length > 0 &&
+          {workspaces.length > 0 &&
             links.map((link) => (
               <Link
                 key={link.href}
@@ -99,32 +99,32 @@ export function OptionsMenu() {
               </Link>
             ))}
 
-          {tenants.length > 0 && (
+          {workspaces.length > 0 && (
             <div className="mt-1 border-t border-slate-100 pt-1">
               <p className="px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-                {tenantsLabels("switch")}
+                {workspacesLabels("switch")}
               </p>
-              {tenants.map((tenant) => (
+              {workspaces.map((workspace) => (
                 <button
-                  key={tenant.id}
+                  key={workspace.id}
                   type="button"
                   role="menuitemradio"
-                  aria-checked={tenant.id === activeTenant?.id}
+                  aria-checked={workspace.id === activeWorkspace?.id}
                   onClick={() => {
-                    selectTenant(tenant.id);
+                    selectWorkspace(workspace.id);
                     close();
                   }}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-50 ${
-                    tenant.id === activeTenant?.id ? "font-medium" : ""
+                    workspace.id === activeWorkspace?.id ? "font-medium" : ""
                   }`}
                 >
                   <span
                     aria-hidden="true"
                     className={`h-1.5 w-1.5 rounded-full ${
-                      tenant.id === activeTenant?.id ? "bg-slate-900" : "bg-transparent"
+                      workspace.id === activeWorkspace?.id ? "bg-slate-900" : "bg-transparent"
                     }`}
                   />
-                  {tenant.name}
+                  {workspace.name}
                 </button>
               ))}
             </div>

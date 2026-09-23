@@ -24,7 +24,7 @@ def test_member_read_accepts_payload():
     member = MemberRead(
         id=1,
         user_id=2,
-        tenant_id=3,
+        workspace_id=3,
         role="MEMBER",
         email="User@Example.com",
         created_at="2026-01-01T00:00:00Z",

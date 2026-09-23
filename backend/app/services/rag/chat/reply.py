@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 
-from app.schemas.tenant import AnswerMode
+from app.schemas.workspace import AnswerMode
 from app.services.llm.base import LLMMessage, LLMProvider
 from app.services.rag.chat.prompt import build_messages, refusal_message
 from app.services.rag.vector_store import RetrievedChunk

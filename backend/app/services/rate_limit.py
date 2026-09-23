@@ -46,12 +46,12 @@ async def check_rate_limit(
     return count <= limit
 
 
-async def widget_allowed(embed_key: str | None, tenant_id: int) -> bool:
-    """Per-embed-key limit (fallback: per-tenant). Disabled when the limit is 0."""
+async def widget_allowed(embed_key: str | None, workspace_id: int) -> bool:
+    """Per-embed-key limit (fallback: per-workspace). Disabled when the limit is 0."""
     limit = get_settings().widget_rate_limit_per_minute
     if limit <= 0:
         return True
-    identity = security.hash_token(embed_key) if embed_key else f"tenant:{tenant_id}"
+    identity = security.hash_token(embed_key) if embed_key else f"workspace:{workspace_id}"
     return await check_rate_limit(identity, limit)
 
 
