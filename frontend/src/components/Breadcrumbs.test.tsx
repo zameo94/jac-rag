@@ -3,15 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
-const state = vi.hoisted(() => ({ pathname: "/dashboard" }));
+const state = vi.hoisted(() => ({ pathname: "/dashboard/documents" }));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => {
     const messages: Record<string, string> = {
       "nav.home": "Home",
       "nav.documents": "Documents",
+      "nav.chat": "Chat",
+      "nav.conversations": "Conversations",
       "nav.members": "Members",
       "nav.settings": "Settings",
+      "nav.workspaces": "Workspaces",
+      "tenants.new": "New workspace",
+      "tenants.editTitle": "Edit workspace",
       "breadcrumbs.label": "Breadcrumb",
     };
     return (key: string) => messages[key] ?? key;
@@ -28,7 +33,7 @@ vi.mock("@/i18n/navigation", () => ({
 }));
 
 beforeEach(() => {
-  state.pathname = "/dashboard";
+  state.pathname = "/dashboard/documents";
 });
 
 describe("Breadcrumbs", () => {
@@ -38,11 +43,50 @@ describe("Breadcrumbs", () => {
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
   });
 
-  it("renders the current section for the dashboard root", () => {
+  it("renders nothing for the dashboard root (it is the home page)", () => {
+    state.pathname = "/dashboard";
+
+    const { container } = render(<Breadcrumbs />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the documents section", () => {
     render(<Breadcrumbs />);
 
-    const current = screen.getByText("Documents");
-    expect(current).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Documents")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders the chat section", () => {
+    state.pathname = "/dashboard/chat";
+
+    render(<Breadcrumbs />);
+
+    expect(screen.getByText("Chat")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders the workspaces section", () => {
+    state.pathname = "/dashboard/workspaces";
+
+    render(<Breadcrumbs />);
+
+    expect(screen.getByText("Workspaces")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders the new workspace section", () => {
+    state.pathname = "/dashboard/workspaces/new";
+
+    render(<Breadcrumbs />);
+
+    expect(screen.getByText("New workspace")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders the edit workspace section", () => {
+    state.pathname = "/dashboard/workspaces/7/edit";
+
+    render(<Breadcrumbs />);
+
+    expect(screen.getByText("Edit workspace")).toHaveAttribute("aria-current", "page");
   });
 
   it("renders the members section", () => {
@@ -51,14 +95,6 @@ describe("Breadcrumbs", () => {
     render(<Breadcrumbs />);
 
     expect(screen.getByText("Members")).toHaveAttribute("aria-current", "page");
-  });
-
-  it("renders the settings section", () => {
-    state.pathname = "/dashboard/settings";
-
-    render(<Breadcrumbs />);
-
-    expect(screen.getByText("Settings")).toHaveAttribute("aria-current", "page");
   });
 
   it("renders nothing for routes without a mapping", () => {

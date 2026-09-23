@@ -4,18 +4,23 @@ import { useTranslations } from "next-intl";
 
 import { Link, usePathname } from "@/i18n/navigation";
 
-const ROUTE_LABELS: Record<string, string> = {
-  "/dashboard": "nav.documents",
-  "/dashboard/members": "nav.members",
-  "/dashboard/settings": "nav.settings",
-};
+const ROUTES: [RegExp, string][] = [
+  [/^\/dashboard\/documents$/, "nav.documents"],
+  [/^\/dashboard\/chat$/, "nav.chat"],
+  [/^\/dashboard\/conversations$/, "nav.conversations"],
+  [/^\/dashboard\/members$/, "nav.members"],
+  [/^\/dashboard\/settings$/, "nav.settings"],
+  [/^\/dashboard\/workspaces$/, "nav.workspaces"],
+  [/^\/dashboard\/workspaces\/new$/, "tenants.new"],
+  [/^\/dashboard\/workspaces\/[^/]+\/edit$/, "tenants.editTitle"],
+];
 
 export function Breadcrumbs() {
   const pathname = usePathname();
   const t = useTranslations();
 
-  const currentLabel = ROUTE_LABELS[pathname];
-  if (!currentLabel) return null;
+  const match = ROUTES.find(([pattern]) => pattern.test(pathname));
+  if (!match) return null;
 
   return (
     <nav aria-label={t("breadcrumbs.label")}>
@@ -27,7 +32,7 @@ export function Breadcrumbs() {
         </li>
         <li aria-hidden="true">/</li>
         <li aria-current="page" className="font-medium text-slate-900">
-          {t(currentLabel)}
+          {t(match[1])}
         </li>
       </ol>
     </nav>

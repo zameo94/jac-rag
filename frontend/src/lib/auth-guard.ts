@@ -2,7 +2,7 @@ import { routing } from "@/i18n/routing";
 
 export const ACCESS_COOKIE = "jacrag_access";
 export const REFRESH_COOKIE = "jacrag_refresh";
-export const PUBLIC_PATHS = ["/login", "/register", "/onboarding"];
+export const PUBLIC_PATHS = ["/login", "/register"];
 
 export type AppLocale = (typeof routing.locales)[number];
 

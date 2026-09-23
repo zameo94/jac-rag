@@ -27,6 +27,7 @@
     "INVALID_REFRESH_TOKEN": "Session expired. Please sign in again.",
     "VALIDATION_ERROR": "The submitted data is not valid.",
     "TENANT_NOT_FOUND": "Workspace not found.",
+    "TENANT_INACTIVE": "This workspace is disabled.",
     "SLUG_ALREADY_TAKEN": "A workspace with this identifier already exists.",
     "INVALID_SLUG": "Invalid workspace identifier.",
     "NOT_A_MEMBER": "You do not have access to this workspace.",
@@ -70,27 +71,54 @@
     "goLogin": "Sign in",
     "logout": "Log out"
   },
-  "onboarding": {
-    "title": "Get started",
-    "subtitle": "Create your workspace or join an existing one with an invite code.",
-    "createTenant": "Create a workspace",
-    "joinWithCode": "Join with a code",
-    "tenantName": "Workspace name",
-    "tenantSlug": "Identifier (optional)",
-    "createCta": "Create workspace",
-    "inviteCode": "Invite code",
-    "acceptCta": "Accept invitation"
-  },
   "tenants": {
     "title": "Your workspaces",
     "switch": "Switch workspace",
     "new": "New workspace",
+    "newHint": "Create a new workspace or join an existing one with an invite code.",
+    "edit": "Edit workspace",
+    "editTitle": "Edit workspace",
+    "delete": "Delete workspace",
+    "deleteConfirm": "Delete this workspace? Documents, conversations and settings will be permanently lost.",
+    "saving": "Saving...",
     "name": "Name",
     "slug": "Identifier",
+    "slugPlaceholder": "If left empty, it is generated from the name",
     "defaultLocale": "Default language",
     "answerMode": "Answer mode",
     "strict": "Strict (documents only)",
-    "assistive": "Assistive (allows general answers)"
+    "assistive": "Assistive (allows general answers)",
+    "createCta": "Create workspace",
+    "joinTitle": "Join with a code",
+    "inviteCode": "Invite code",
+    "acceptCta": "Accept invitation",
+    "active": "Active",
+    "inactive": "Inactive",
+    "status": "Status",
+    "statusHint": "When inactive, the chat stops answering; documents and settings stay available.",
+    "current": "Current",
+    "empty": "No workspaces.",
+    "noneTitle": "You do not belong to any workspace",
+    "noneHint": "Get invited by a team or create your own workspace.",
+    "noneCta": "Create or join a workspace",
+    "notFound": "Workspace not found.",
+    "forbidden": "You do not have permission to edit this workspace."
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Everything in your workspace, one click away.",
+    "documents": "Documents",
+    "documentsHint": "Upload and manage the files to query.",
+    "chat": "Chat",
+    "chatHint": "Ask questions about your documents.",
+    "conversations": "Conversations",
+    "conversationsHint": "Review past conversations.",
+    "members": "Members",
+    "membersHint": "Invite people and manage roles.",
+    "settings": "Settings",
+    "settingsHint": "Configure providers and embed keys.",
+    "workspaces": "Workspaces",
+    "workspacesHint": "Create and switch workspaces."
   },
   "documents": {
     "title": "Documents",
@@ -129,6 +157,7 @@
     }
   },
   "settings": {
+    "pageTitle": "Settings",
     "title": "LLM settings",
     "usedProvider": "Provider used for answers",
     "noProviders": "No provider available.",
@@ -176,8 +205,8 @@
     "user": "User",
     "select": "Select a conversation."
   },
-  "playground": {
-    "title": "Chat playground",
+  "chat": {
+    "title": "Chat",
     "placeholder": "Ask a question about your documents...",
     "send": "Send",
     "sending": "Sending...",
@@ -190,17 +219,13 @@
     "menu": "Menu",
     "home": "Home",
     "documents": "Documents",
+    "chat": "Chat",
+    "conversations": "Conversations",
     "members": "Members",
     "settings": "Settings",
-    "playground": "Playground",
-    "conversations": "Conversations"
+    "workspaces": "Workspaces"
   },
   "breadcrumbs": {
     "label": "Breadcrumb"
-  },
-  "home": {
-    "title": "Your documents, with a chat on top",
-    "subtitle": "Upload your files and query their content easily.",
-    "cta": "Go to documents"
   }
 }

@@ -219,3 +219,43 @@ async def test_chat_rejects_non_member(client, qdrant):
 
     assert response.status_code == 403
     assert response.json()["code"] == "NOT_A_MEMBER"
+
+
+async def test_chat_is_blocked_when_tenant_inactive(client, qdrant, monkeypatch):
+    headers = await register_and_login(client, "chat-inactive@example.com")
+    tenant_id = await create_tenant(client, headers)
+    patch_provider(monkeypatch, FakeProvider())
+    await client.patch(
+        f"/api/v1/tenants/{tenant_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+
+    response = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat",
+        json={"message": QUERY},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "TENANT_INACTIVE"
+
+
+async def test_chat_stream_is_blocked_when_tenant_inactive(client, qdrant, monkeypatch):
+    headers = await register_and_login(client, "chat-inactive-stream@example.com")
+    tenant_id = await create_tenant(client, headers)
+    patch_provider(monkeypatch, FakeProvider())
+    await client.patch(
+        f"/api/v1/tenants/{tenant_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+
+    response = await client.post(
+        f"/api/v1/tenants/{tenant_id}/chat/stream",
+        json={"message": QUERY},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "TENANT_INACTIVE"

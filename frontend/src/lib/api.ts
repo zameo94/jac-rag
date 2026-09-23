@@ -1,6 +1,7 @@
 import { ApiError } from "./api-error";
 import { touchSession } from "./session-idle";
 import type {
+  AnswerMode,
   ApiKey,
   ApiKeyCreated,
   ChatResponse,
@@ -16,6 +17,7 @@ import type {
   MembershipRole,
   ProviderSelection,
   Tenant,
+  TenantUpdate,
   User,
 } from "./types";
 
@@ -103,11 +105,27 @@ export const api = {
     get(tenantId: number): Promise<Tenant> {
       return request(`/tenants/${tenantId}`);
     },
-    create(name: string, slug?: string, defaultLocale?: string): Promise<Tenant> {
+    create(
+      name: string,
+      slug: string | undefined,
+      defaultLocale: string,
+      answerMode: AnswerMode,
+    ): Promise<Tenant> {
       return request("/tenants", {
         method: "POST",
-        body: { name, slug: slug || null, default_locale: defaultLocale },
+        body: {
+          name,
+          slug: slug || null,
+          default_locale: defaultLocale,
+          answer_mode: answerMode,
+        },
       });
+    },
+    update(tenantId: number, body: TenantUpdate): Promise<Tenant> {
+      return request(`/tenants/${tenantId}`, { method: "PATCH", body });
+    },
+    remove(tenantId: number): Promise<void> {
+      return request(`/tenants/${tenantId}`, { method: "DELETE" });
     },
   },
   members: {

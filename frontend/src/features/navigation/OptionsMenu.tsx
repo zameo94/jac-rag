@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { MenuIcon } from "@/components/icons";
+import {
+  ChatIcon,
+  ConversationsIcon,
+  DocumentsIcon,
+  MembersIcon,
+  MenuIcon,
+  SettingsIcon,
+  WorkspacesIcon,
+} from "@/components/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useTenant } from "@/features/tenants/TenantProvider";
 import { Link, usePathname } from "@/i18n/navigation";
@@ -40,11 +48,16 @@ export function OptionsMenu() {
   }, [open]);
 
   const links = [
-    { href: "/dashboard", label: t("documents") },
-    { href: "/dashboard/playground", label: t("playground") },
-    { href: "/dashboard/conversations", label: t("conversations") },
-    { href: "/dashboard/members", label: t("members") },
-    { href: "/dashboard/settings", label: t("settings") },
+    { href: "/dashboard/documents", label: t("documents"), Icon: DocumentsIcon },
+    { href: "/dashboard/chat", label: t("chat"), Icon: ChatIcon },
+    {
+      href: "/dashboard/conversations",
+      label: t("conversations"),
+      Icon: ConversationsIcon,
+    },
+    { href: "/dashboard/members", label: t("members"), Icon: MembersIcon },
+    { href: "/dashboard/settings", label: t("settings"), Icon: SettingsIcon },
+    { href: "/dashboard/workspaces", label: t("workspaces"), Icon: WorkspacesIcon },
   ];
 
   function close() {
@@ -69,20 +82,22 @@ export function OptionsMenu() {
           role="menu"
           className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              role="menuitem"
-              aria-current={pathname === link.href}
-              onClick={close}
-              className={`block px-3 py-1.5 text-sm hover:bg-slate-50 ${
-                pathname === link.href ? "font-medium" : ""
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {tenants.length > 0 &&
+            links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                role="menuitem"
+                aria-current={pathname === link.href}
+                onClick={close}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50 ${
+                  pathname === link.href ? "font-medium" : ""
+                }`}
+              >
+                <link.Icon className="h-4 w-4 text-slate-500" />
+                {link.label}
+              </Link>
+            ))}
 
           {tenants.length > 0 && (
             <div className="mt-1 border-t border-slate-100 pt-1">

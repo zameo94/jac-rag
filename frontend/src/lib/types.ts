@@ -15,6 +15,15 @@ export interface Tenant {
   slug: string;
   default_locale: string;
   answer_mode: AnswerMode;
+  is_active: boolean;
+}
+
+export interface TenantUpdate {
+  name?: string;
+  slug?: string;
+  default_locale?: string;
+  answer_mode?: AnswerMode;
+  is_active?: boolean;
 }
 
 export interface Member {

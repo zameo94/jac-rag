@@ -90,13 +90,21 @@ docker-compose.yml         # db, qdrant, redis, backend, worker, scheduler, fron
 - **Never trust `tenant_id` from the client.** Derive membership server-side on every
   tenant-scoped route and filter every query by it.
 - Roles: `OWNER | ADMIN | MEMBER`. Exactly one `OWNER`, not removable.
+- `OWNER`/`ADMIN` can update a tenant's settings (`PATCH /api/v1/tenants/{id}`): `name`,
+  `slug` (still unique), `default_locale`, `answer_mode`, `is_active`. `MEMBER` gets `403`.
+- A tenant with `is_active = false` is **disabled for chat**: the chat endpoints (CMS and
+  widget) return `403 TENANT_INACTIVE`. Everything else (documents, settings, members,
+  embed keys) keeps working. The widget `/config` exposes `is_active`.
+- Only the `OWNER` can delete a tenant (`DELETE /api/v1/tenants/{id}`): it removes the
+  tenant's memberships, documents, api keys, invitations, conversations/messages, tenant
+  settings, its Qdrant collection and the stored files.
 - Qdrant: **one collection per tenant** `tenant_{id}`. Strong isolation, clean deletion.
 
 ## Data model
 
 ```
 users         (id, email UNIQUE, password_hash, locale, is_active, timestamps)
-tenants       (id, name, slug UNIQUE, default_locale, answer_mode, timestamps)
+tenants       (id, name, slug UNIQUE, default_locale, answer_mode, is_active, timestamps)
 memberships   (id, user_id, tenant_id, role, created_at)  UNIQUE(user_id, tenant_id)
 invitations   (id, tenant_id, email, role, token_hash, expires_at,
                accepted_at, created_by, created_at)
@@ -287,9 +295,13 @@ message -> fastembed -> search Qdrant top-k
 
 ## Frontend scope (CMS only, TypeScript)
 
-- Auth (`/register`, `/login`), onboarding (create tenant / accept invite).
-- Tenant management, members, invitations, embed keys (`features/embed-keys`).
-- Document upload + status, LLM settings, chat playground (`features/chat`, streaming via
+- Auth (`/register`, `/login`).
+- Workspaces: `/dashboard` is the app root (overview of cards) and `/` redirects to it.
+  A user with no membership is a **guest**: they only see the dashboard gate and the
+  create/join form (`/dashboard/workspaces/new`), guarded client-side by `WorkspaceGuard`.
+  Any authenticated user can create a workspace at any time and becomes its `OWNER`.
+- Members, invitations, embed keys (`features/embed-keys`).
+- Document upload + status, LLM settings, internal chat (`features/chat`, streaming via
   `lib/chat-stream.ts`), conversations viewer for ADMIN/OWNER (`features/conversations`).
 - Module division mirrors medicines_manager: `features/<domain>/{components,hooks,services}`,
   `pages`/route groups, typed `lib/api.ts`. Next.js App Router instead of React Router.
@@ -388,8 +400,8 @@ message -> fastembed -> search Qdrant top-k
   backend. The browser never reads tokens; the CMS calls the API through the `/api`
   same-origin proxy so cookies are sent automatically.
 - `middleware.ts` is the server-side guard: requests without a session cookie are
-  redirected to `/{locale}/login` before rendering (public paths: login, register,
-  onboarding). `RequireAuth` is a client-side secondary check.
+  redirected to `/{locale}/login` before rendering (public paths: login, register).
+  `RequireAuth` is a client-side secondary check.
 - Error codes are mapped to translations in `errors.*`; the API stays English-only.
 
 ## Gotchas

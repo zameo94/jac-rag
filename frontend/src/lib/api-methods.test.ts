@@ -30,14 +30,38 @@ describe("tenants api", () => {
     const fetchMock = mockFetch(201, { id: 1 });
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.tenants.create("Acme", "", "it");
+    await api.tenants.create("Acme", "", "it", "assistive");
 
     const [, init] = fetchMock.mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({
       name: "Acme",
       slug: null,
       default_locale: "it",
+      answer_mode: "assistive",
     });
+  });
+
+  it("updates a tenant", async () => {
+    const fetchMock = mockFetch(200, { id: 1 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.tenants.update(1, { name: "New", slug: "new" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ name: "New", slug: "new" });
+  });
+
+  it("deletes a tenant", async () => {
+    const fetchMock = mockFetch(204, null);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.tenants.remove(1);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/tenants/1");
+    expect(init.method).toBe("DELETE");
   });
 });
 

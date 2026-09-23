@@ -1,24 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
-
-import { DocumentsPanel } from "@/features/documents/DocumentsPanel";
+import { DashboardOverview } from "@/features/home/DashboardOverview";
 import { useTenant } from "@/features/tenants/TenantProvider";
-import { useRouter } from "@/i18n/navigation";
+import { NoWorkspaceGate } from "@/features/workspaces/NoWorkspaceGate";
 
 export default function DashboardPage() {
-  const { activeTenant, loading, tenants } = useTenant();
-  const router = useRouter();
+  const { tenants, loading } = useTenant();
 
-  useEffect(() => {
-    if (!loading && tenants.length === 0) {
-      router.replace("/onboarding");
-    }
-  }, [loading, tenants, router]);
-
-  if (loading || !activeTenant) {
+  if (loading) {
     return <p className="text-slate-500">...</p>;
   }
 
-  return <DocumentsPanel />;
+  if (tenants.length === 0) {
+    return <NoWorkspaceGate />;
+  }
+
+  return <DashboardOverview />;
 }

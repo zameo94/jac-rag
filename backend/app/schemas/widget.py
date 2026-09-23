@@ -13,3 +13,4 @@ class WidgetConfigRead(SQLModel):
     tenant_name: str
     default_locale: str
     answer_mode: AnswerMode
+    is_active: bool

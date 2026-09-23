@@ -10,6 +10,7 @@ from app.core import security
 from app.core.config import get_settings
 from app.core.deps import (
     enforce_widget_rate_limit,
+    ensure_tenant_active,
     get_embed_tenant,
     get_widget_visitor,
     resolve_embed_tenant,
@@ -58,6 +59,7 @@ async def widget_config(
         tenant_name=tenant.name,
         default_locale=tenant.default_locale,
         answer_mode=tenant.answer_mode,
+        is_active=tenant.is_active,
     )
 
 
@@ -70,6 +72,7 @@ async def widget_chat(
     session: AsyncSession = Depends(get_session),
     client: AsyncQdrantClient = Depends(get_vector_client),
 ) -> ChatResponse:
+    ensure_tenant_active(tenant)
     try:
         prepared = await prepare_chat(
             session,
@@ -111,6 +114,7 @@ async def widget_chat_stream(
 ) -> StreamingResponse:
     async with session_scope() as session:
         tenant = await resolve_embed_tenant(session, x_embed_key)
+        ensure_tenant_active(tenant)
         if not await widget_allowed(x_embed_key, tenant.id):
             raise api_error(
                 status.HTTP_429_TOO_MANY_REQUESTS,

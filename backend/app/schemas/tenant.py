@@ -33,6 +33,7 @@ class TenantBase(SQLModel):
             server_default=AnswerMode.STRICT.value,
         ),
     )
+    is_active: bool = Field(default=True)
 
     @field_validator("name", mode="before")
     @classmethod
@@ -59,6 +60,36 @@ class TenantBase(SQLModel):
 
 class TenantCreate(TenantBase):
     slug: Optional[str] = Field(default=None, max_length=60)
+
+
+class TenantUpdate(SQLModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    slug: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    default_locale: Optional[str] = Field(default=None, max_length=8)
+    answer_mode: Optional[AnswerMode] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value):
+        if not isinstance(value, str):
+            return value
+        normalized = slugify_value(value)
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", normalized):
+            raise ValueError("Slug must contain lowercase letters, numbers and hyphens")
+        return normalized
+
+    @field_validator("default_locale", mode="before")
+    @classmethod
+    def normalize_default_locale(cls, value):
+        return normalize_locale_value(value)
 
 
 class TenantRead(TenantBase):

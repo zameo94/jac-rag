@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
   tenants: [
     { id: 1, name: "Acme", slug: "acme" },
     { id: 2, name: "Beta", slug: "beta" },
-  ],
+  ] as { id: number; name: string; slug: string }[],
   activeTenantId: 1,
 }));
 
@@ -20,8 +20,11 @@ vi.mock("next-intl", () => ({
     const messages: Record<string, string> = {
       "nav.menu": "Menu",
       "nav.documents": "Documents",
+      "nav.chat": "Chat",
+      "nav.conversations": "Conversations",
       "nav.members": "Members",
       "nav.settings": "Settings",
+      "nav.workspaces": "Workspaces",
       "auth.logout": "Log out",
       "tenants.switch": "Switch workspace",
     };
@@ -54,6 +57,10 @@ beforeEach(() => {
   logout.mockClear();
   selectTenant.mockClear();
   state.activeTenantId = 1;
+  state.tenants = [
+    { id: 1, name: "Acme", slug: "acme" },
+    { id: 2, name: "Beta", slug: "beta" },
+  ];
 });
 
 describe("OptionsMenu", () => {
@@ -73,16 +80,33 @@ describe("OptionsMenu", () => {
 
     expect(screen.getByRole("menuitem", { name: "Documents" })).toHaveAttribute(
       "href",
-      "/dashboard",
+      "/dashboard/documents",
     );
-    expect(screen.getByRole("menuitem", { name: "Members" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "Chat" })).toHaveAttribute(
       "href",
-      "/dashboard/members",
+      "/dashboard/chat",
     );
-    expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "Workspaces" })).toHaveAttribute(
       "href",
-      "/dashboard/settings",
+      "/dashboard/workspaces",
     );
+
+    for (const label of ["Documents", "Chat", "Workspaces"]) {
+      expect(
+        screen.getByRole("menuitem", { name: label }).querySelector("svg"),
+      ).not.toBeNull();
+    }
+  });
+
+  it("hides the workspace links for a guest", async () => {
+    state.tenants = [];
+    const user = userEvent.setup();
+    render(<OptionsMenu />);
+
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Documents" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
   });
 
   it("lists tenants and marks the active one", async () => {

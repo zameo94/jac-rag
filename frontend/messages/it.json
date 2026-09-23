@@ -27,6 +27,7 @@
     "INVALID_REFRESH_TOKEN": "Sessione scaduta. Effettua di nuovo l'accesso.",
     "VALIDATION_ERROR": "I dati inseriti non sono validi.",
     "TENANT_NOT_FOUND": "Workspace non trovato.",
+    "TENANT_INACTIVE": "Questo workspace è disattivato.",
     "SLUG_ALREADY_TAKEN": "Esiste già un workspace con questo identificativo.",
     "INVALID_SLUG": "Identificativo del workspace non valido.",
     "NOT_A_MEMBER": "Non hai accesso a questo workspace.",
@@ -70,27 +71,54 @@
     "goLogin": "Accedi",
     "logout": "Esci"
   },
-  "onboarding": {
-    "title": "Inizia",
-    "subtitle": "Crea il tuo workspace oppure unisciti a uno esistente con un codice invito.",
-    "createTenant": "Crea un workspace",
-    "joinWithCode": "Unisciti con un codice",
-    "tenantName": "Nome del workspace",
-    "tenantSlug": "Identificativo (opzionale)",
-    "createCta": "Crea workspace",
-    "inviteCode": "Codice invito",
-    "acceptCta": "Accetta invito"
-  },
   "tenants": {
     "title": "I tuoi workspace",
     "switch": "Cambia workspace",
     "new": "Nuovo workspace",
+    "newHint": "Crea un nuovo workspace oppure unisciti a uno esistente con un codice invito.",
+    "edit": "Modifica workspace",
+    "editTitle": "Modifica workspace",
+    "delete": "Elimina workspace",
+    "deleteConfirm": "Eliminare questo workspace? Documenti, conversazioni e impostazioni verranno persi definitivamente.",
+    "saving": "Salvataggio...",
     "name": "Nome",
     "slug": "Identificativo",
+    "slugPlaceholder": "Se non lo indichi, viene generato dal nome",
     "defaultLocale": "Lingua predefinita",
     "answerMode": "Modalità risposta",
     "strict": "Strict (solo dai documenti)",
-    "assistive": "Assistive (consente risposte generali)"
+    "assistive": "Assistive (consente risposte generali)",
+    "createCta": "Crea workspace",
+    "joinTitle": "Unisciti con un codice",
+    "inviteCode": "Codice invito",
+    "acceptCta": "Accetta invito",
+    "active": "Attivo",
+    "inactive": "Disattivato",
+    "status": "Stato",
+    "statusHint": "Se disattivato, la chat non risponde; documenti e impostazioni restano accessibili.",
+    "current": "Corrente",
+    "empty": "Nessun workspace.",
+    "noneTitle": "Non appartieni a nessun workspace",
+    "noneHint": "Fatti invitare da un team oppure crea il tuo workspace.",
+    "noneCta": "Crea o unisciti a un workspace",
+    "notFound": "Workspace non trovato.",
+    "forbidden": "Non hai i permessi per modificare questo workspace."
+  },
+  "overview": {
+    "title": "Panoramica",
+    "subtitle": "Tutto il tuo workspace a portata di mano.",
+    "documents": "Documenti",
+    "documentsHint": "Carica e gestisci i file da interrogare.",
+    "chat": "Chat",
+    "chatHint": "Fai domande sui tuoi documenti.",
+    "conversations": "Conversazioni",
+    "conversationsHint": "Rivedi le conversazioni passate.",
+    "members": "Membri",
+    "membersHint": "Invita persone e gestisci i ruoli.",
+    "settings": "Impostazioni",
+    "settingsHint": "Configura provider e chiavi di incorporamento.",
+    "workspaces": "Workspaces",
+    "workspacesHint": "Crea e cambia workspace."
   },
   "documents": {
     "title": "Documenti",
@@ -129,6 +157,7 @@
     }
   },
   "settings": {
+    "pageTitle": "Impostazioni",
     "title": "Impostazioni LLM",
     "usedProvider": "Provider usato nelle risposte",
     "noProviders": "Nessun provider disponibile.",
@@ -176,8 +205,8 @@
     "user": "Utente",
     "select": "Seleziona una conversazione."
   },
-  "playground": {
-    "title": "Playground chat",
+  "chat": {
+    "title": "Chat",
     "placeholder": "Fai una domanda sui tuoi documenti...",
     "send": "Invia",
     "sending": "Invio...",
@@ -190,17 +219,13 @@
     "menu": "Menu",
     "home": "Home",
     "documents": "Documenti",
+    "chat": "Chat",
+    "conversations": "Conversazioni",
     "members": "Membri",
     "settings": "Impostazioni",
-    "playground": "Playground",
-    "conversations": "Conversazioni"
+    "workspaces": "Workspaces"
   },
   "breadcrumbs": {
     "label": "Percorso di navigazione"
-  },
-  "home": {
-    "title": "I tuoi documenti, con una chat sopra",
-    "subtitle": "Carica i tuoi file e interroga i contenuti in modo semplice.",
-    "cta": "Vai ai documenti"
   }
 }
