@@ -214,6 +214,7 @@ services:
     build: ./backend
     container_name: jac_rag_scheduler
     restart: always
+    profiles: ["retention"]
     command: taskiq scheduler app.core.tkq:scheduler
     environment:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER:?}:${DB_PASSWORD:?}@db:5432/${DB_NAME:?}

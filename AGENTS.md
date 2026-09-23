@@ -358,7 +358,10 @@ message -> fastembed -> search Qdrant top-k
 - `worker` runs `taskiq worker app.core.tkq:broker --fs-discover`; `scheduler` runs
   `taskiq scheduler app.core.tkq:scheduler`. Ingestion is on-demand (`ingest_document.kiq`);
   the scheduler only drives the periodic retention purge (`purge_conversations`, daily cron,
-  `CHAT_RETENTION_DAYS`).
+  `CHAT_RETENTION_DAYS`, `0` disables the purge). The `scheduler` service is behind the
+  `retention` **Compose profile**: it is only created when `RETENTION_JOB` is non-empty
+  (`.env` derives `COMPOSE_PROFILES` from it), so leaving `RETENTION_JOB` empty means no
+  scheduler container at all.
 - Volumes: `storage_data` (uploads), `fastembed_cache` (embedding model), plus db/qdrant/redis.
 - CORS: `CorsDispatcher` — the CMS allows `CORS_ORIGINS` with credentials; the widget
   namespace (`/api/v1/widget/*`) allows any origin without credentials.
