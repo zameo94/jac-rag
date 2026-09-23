@@ -16,8 +16,8 @@ import type {
   Membership,
   MembershipRole,
   ProviderSelection,
-  Tenant,
-  TenantUpdate,
+  Workspace,
+  WorkspaceUpdate,
   User,
 } from "./types";
 
@@ -97,21 +97,24 @@ export const api = {
     me(): Promise<User> {
       return request("/auth/me");
     },
-  },
-  tenants: {
-    list(): Promise<Tenant[]> {
-      return request("/tenants");
+    updateLocale(locale: string): Promise<User> {
+      return request("/auth/me", { method: "PATCH", body: { locale } });
     },
-    get(tenantId: number): Promise<Tenant> {
-      return request(`/tenants/${tenantId}`);
+  },
+  workspaces: {
+    list(): Promise<Workspace[]> {
+      return request("/workspaces");
+    },
+    get(workspaceId: number): Promise<Workspace> {
+      return request(`/workspaces/${workspaceId}`);
     },
     create(
       name: string,
       slug: string | undefined,
       defaultLocale: string,
       answerMode: AnswerMode,
-    ): Promise<Tenant> {
-      return request("/tenants", {
+    ): Promise<Workspace> {
+      return request("/workspaces", {
         method: "POST",
         body: {
           name,
@@ -121,37 +124,37 @@ export const api = {
         },
       });
     },
-    update(tenantId: number, body: TenantUpdate): Promise<Tenant> {
-      return request(`/tenants/${tenantId}`, { method: "PATCH", body });
+    update(workspaceId: number, body: WorkspaceUpdate): Promise<Workspace> {
+      return request(`/workspaces/${workspaceId}`, { method: "PATCH", body });
     },
-    remove(tenantId: number): Promise<void> {
-      return request(`/tenants/${tenantId}`, { method: "DELETE" });
+    remove(workspaceId: number): Promise<void> {
+      return request(`/workspaces/${workspaceId}`, { method: "DELETE" });
     },
   },
   members: {
-    me(tenantId: number): Promise<Membership> {
-      return request(`/tenants/${tenantId}/me`);
+    me(workspaceId: number): Promise<Membership> {
+      return request(`/workspaces/${workspaceId}/me`);
     },
-    list(tenantId: number): Promise<Member[]> {
-      return request(`/tenants/${tenantId}/members`);
+    list(workspaceId: number): Promise<Member[]> {
+      return request(`/workspaces/${workspaceId}/members`);
     },
-    updateRole(tenantId: number, userId: number, role: MembershipRole): Promise<Member> {
-      return request(`/tenants/${tenantId}/members/${userId}`, {
+    updateRole(workspaceId: number, userId: number, role: MembershipRole): Promise<Member> {
+      return request(`/workspaces/${workspaceId}/members/${userId}`, {
         method: "PATCH",
         body: { role },
       });
     },
-    remove(tenantId: number, userId: number): Promise<void> {
-      return request(`/tenants/${tenantId}/members/${userId}`, { method: "DELETE" });
+    remove(workspaceId: number, userId: number): Promise<void> {
+      return request(`/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" });
     },
   },
   invitations: {
     create(
-      tenantId: number,
+      workspaceId: number,
       email: string,
       role: MembershipRole = "MEMBER",
     ): Promise<InvitationCreated> {
-      return request(`/tenants/${tenantId}/invitations`, {
+      return request(`/workspaces/${workspaceId}/invitations`, {
         method: "POST",
         body: { email, role },
       });
@@ -161,47 +164,47 @@ export const api = {
     },
   },
   documents: {
-    list(tenantId: number): Promise<Document[]> {
-      return request(`/tenants/${tenantId}/documents`);
+    list(workspaceId: number): Promise<Document[]> {
+      return request(`/workspaces/${workspaceId}/documents`);
     },
-    get(tenantId: number, documentId: number): Promise<Document> {
-      return request(`/tenants/${tenantId}/documents/${documentId}`);
+    get(workspaceId: number, documentId: number): Promise<Document> {
+      return request(`/workspaces/${workspaceId}/documents/${documentId}`);
     },
-    upload(tenantId: number, file: File): Promise<Document> {
+    upload(workspaceId: number, file: File): Promise<Document> {
       const formData = new FormData();
       formData.append("file", file);
-      return request(`/tenants/${tenantId}/documents`, { method: "POST", formData });
+      return request(`/workspaces/${workspaceId}/documents`, { method: "POST", formData });
     },
-    remove(tenantId: number, documentId: number): Promise<void> {
-      return request(`/tenants/${tenantId}/documents/${documentId}`, { method: "DELETE" });
+    remove(workspaceId: number, documentId: number): Promise<void> {
+      return request(`/workspaces/${workspaceId}/documents/${documentId}`, { method: "DELETE" });
     },
   },
   llm: {
-    config(tenantId: number): Promise<LLMConfig> {
-      return request(`/tenants/${tenantId}/llm/config`);
+    config(workspaceId: number): Promise<LLMConfig> {
+      return request(`/workspaces/${workspaceId}/llm/config`);
     },
-    settings(tenantId: number): Promise<LLMSettings> {
-      return request(`/tenants/${tenantId}/llm/settings`);
+    settings(workspaceId: number): Promise<LLMSettings> {
+      return request(`/workspaces/${workspaceId}/llm/settings`);
     },
-    updateSettings(tenantId: number, body: LLMSettingsUpdate): Promise<LLMSettings> {
-      return request(`/tenants/${tenantId}/llm/settings`, { method: "PUT", body });
+    updateSettings(workspaceId: number, body: LLMSettingsUpdate): Promise<LLMSettings> {
+      return request(`/workspaces/${workspaceId}/llm/settings`, { method: "PUT", body });
     },
-    selectProvider(tenantId: number, providerId: string): Promise<ProviderSelection> {
-      return request(`/tenants/${tenantId}/llm/provider`, {
+    selectProvider(workspaceId: number, providerId: string): Promise<ProviderSelection> {
+      return request(`/workspaces/${workspaceId}/llm/provider`, {
         method: "PUT",
         body: { provider_id: providerId },
       });
     },
   },
   apiKeys: {
-    list(tenantId: number): Promise<ApiKey[]> {
-      return request(`/tenants/${tenantId}/api-keys`);
+    list(workspaceId: number): Promise<ApiKey[]> {
+      return request(`/workspaces/${workspaceId}/api-keys`);
     },
-    create(tenantId: number, name: string): Promise<ApiKeyCreated> {
-      return request(`/tenants/${tenantId}/api-keys`, { method: "POST", body: { name } });
+    create(workspaceId: number, name: string): Promise<ApiKeyCreated> {
+      return request(`/workspaces/${workspaceId}/api-keys`, { method: "POST", body: { name } });
     },
-    setActive(tenantId: number, keyId: number, isActive: boolean): Promise<ApiKey> {
-      return request(`/tenants/${tenantId}/api-keys/${keyId}`, {
+    setActive(workspaceId: number, keyId: number, isActive: boolean): Promise<ApiKey> {
+      return request(`/workspaces/${workspaceId}/api-keys/${keyId}`, {
         method: "PATCH",
         body: { is_active: isActive },
       });
@@ -209,25 +212,25 @@ export const api = {
   },
   chat: {
     send(
-      tenantId: number,
+      workspaceId: number,
       message: string,
       conversationId?: number | null,
     ): Promise<ChatResponse> {
-      return request(`/tenants/${tenantId}/chat`, {
+      return request(`/workspaces/${workspaceId}/chat`, {
         method: "POST",
         body: { message, conversation_id: conversationId ?? null },
       });
     },
   },
   conversations: {
-    list(tenantId: number): Promise<Conversation[]> {
-      return request(`/tenants/${tenantId}/conversations`);
+    list(workspaceId: number): Promise<Conversation[]> {
+      return request(`/workspaces/${workspaceId}/conversations`);
     },
-    get(tenantId: number, conversationId: number): Promise<ConversationDetail> {
-      return request(`/tenants/${tenantId}/conversations/${conversationId}`);
+    get(workspaceId: number, conversationId: number): Promise<ConversationDetail> {
+      return request(`/workspaces/${workspaceId}/conversations/${conversationId}`);
     },
-    remove(tenantId: number, conversationId: number): Promise<void> {
-      return request(`/tenants/${tenantId}/conversations/${conversationId}`, {
+    remove(workspaceId: number, conversationId: number): Promise<void> {
+      return request(`/workspaces/${workspaceId}/conversations/${conversationId}`, {
         method: "DELETE",
       });
     },

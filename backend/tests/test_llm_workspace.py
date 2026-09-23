@@ -1,35 +1,35 @@
 import pytest
 
-from app.models import Setting, Tenant
+from app.models import Setting, Workspace
 from app.schemas.setting import SettingScope
 from app.services.llm import EXTERNAL_API_PROVIDER_NAME, OLLAMA_PROVIDER_NAME
-from app.services.llm.resolution.tenant import (
+from app.services.llm.resolution.workspace import (
     ALLOWED_PROVIDERS_KEY,
     DEFAULT_ALLOWED_PROVIDERS,
     DEFAULT_PROVIDER_KEY,
     LLM_SETTING_TYPE,
     MODEL_KEY,
-    available_providers_for_tenant,
+    available_providers_for_workspace,
     normalize_allowed_providers,
-    tenant_allowed_provider_ids,
-    tenant_default_provider,
-    tenant_model_override,
+    workspace_allowed_provider_ids,
+    workspace_default_provider,
+    workspace_model_override,
 )
 
 
-async def create_tenant(session_factory, slug: str = "acme") -> int:
+async def create_workspace(session_factory, slug: str = "acme") -> int:
     async with session_factory() as session:
-        tenant = Tenant(name="Acme", slug=slug)
-        session.add(tenant)
+        workspace = Workspace(name="Acme", slug=slug)
+        session.add(workspace)
         await session.commit()
-        await session.refresh(tenant)
-        return tenant.id
+        await session.refresh(workspace)
+        return workspace.id
 
 
-def tenant_llm_setting(tenant_id: int, key: str, value) -> Setting:
+def workspace_llm_setting(workspace_id: int, key: str, value) -> Setting:
     return Setting(
-        scope_type=SettingScope.TENANT,
-        scope_id=tenant_id,
+        scope_type=SettingScope.WORKSPACE,
+        scope_id=workspace_id,
         type=LLM_SETTING_TYPE,
         key=key,
         value=value,
@@ -57,22 +57,22 @@ def test_normalize_allowed_providers_rejects_unknown():
 
 
 async def test_available_providers_default_when_no_settings(session_factory):
-    tenant_id = await create_tenant(session_factory)
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
-        providers = await available_providers_for_tenant(session, tenant_id)
+        providers = await available_providers_for_workspace(session, workspace_id)
 
     assert [provider.id for provider in providers] == [OLLAMA_PROVIDER_NAME]
     assert providers[0].models
 
 
 async def test_external_api_never_available_even_if_allowed(session_factory):
-    tenant_id = await create_tenant(session_factory)
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
         session.add(
-            tenant_llm_setting(
-                tenant_id,
+            workspace_llm_setting(
+                workspace_id,
                 ALLOWED_PROVIDERS_KEY,
                 [OLLAMA_PROVIDER_NAME, EXTERNAL_API_PROVIDER_NAME],
             )
@@ -80,36 +80,36 @@ async def test_external_api_never_available_even_if_allowed(session_factory):
         await session.commit()
 
     async with session_factory() as session:
-        providers = await available_providers_for_tenant(session, tenant_id)
+        providers = await available_providers_for_workspace(session, workspace_id)
 
     assert [provider.id for provider in providers] == [OLLAMA_PROVIDER_NAME]
 
 
-async def test_tenant_allowing_only_external_gets_no_providers(session_factory):
-    tenant_id = await create_tenant(session_factory)
+async def test_workspace_allowing_only_external_gets_no_providers(session_factory):
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
         session.add(
-            tenant_llm_setting(
-                tenant_id, ALLOWED_PROVIDERS_KEY, [EXTERNAL_API_PROVIDER_NAME]
+            workspace_llm_setting(
+                workspace_id, ALLOWED_PROVIDERS_KEY, [EXTERNAL_API_PROVIDER_NAME]
             )
         )
         await session.commit()
 
     async with session_factory() as session:
-        providers = await available_providers_for_tenant(session, tenant_id)
+        providers = await available_providers_for_workspace(session, workspace_id)
 
     assert providers == ()
 
 
-async def test_user_scope_setting_does_not_affect_tenant(session_factory):
-    tenant_id = await create_tenant(session_factory)
+async def test_user_scope_setting_does_not_affect_workspace(session_factory):
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
         session.add(
             Setting(
                 scope_type=SettingScope.USER,
-                scope_id=tenant_id,
+                scope_id=workspace_id,
                 type=LLM_SETTING_TYPE,
                 key=ALLOWED_PROVIDERS_KEY,
                 value=[EXTERNAL_API_PROVIDER_NAME],
@@ -118,45 +118,45 @@ async def test_user_scope_setting_does_not_affect_tenant(session_factory):
         await session.commit()
 
     async with session_factory() as session:
-        providers = await available_providers_for_tenant(session, tenant_id)
+        providers = await available_providers_for_workspace(session, workspace_id)
 
     assert [provider.id for provider in providers] == [OLLAMA_PROVIDER_NAME]
 
 
-async def test_tenant_allowed_provider_ids_from_settings(session_factory):
-    tenant_id = await create_tenant(session_factory)
+async def test_workspace_allowed_provider_ids_from_settings(session_factory):
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
         session.add(
-            tenant_llm_setting(tenant_id, ALLOWED_PROVIDERS_KEY, [OLLAMA_PROVIDER_NAME])
+            workspace_llm_setting(workspace_id, ALLOWED_PROVIDERS_KEY, [OLLAMA_PROVIDER_NAME])
         )
         await session.commit()
 
     async with session_factory() as session:
-        assert await tenant_allowed_provider_ids(session, tenant_id) == (
+        assert await workspace_allowed_provider_ids(session, workspace_id) == (
             OLLAMA_PROVIDER_NAME,
         )
 
 
-async def test_tenant_model_override(session_factory):
-    tenant_id = await create_tenant(session_factory)
+async def test_workspace_model_override(session_factory):
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
-        assert await tenant_model_override(session, tenant_id) is None
-        session.add(tenant_llm_setting(tenant_id, MODEL_KEY, "llama3.1"))
+        assert await workspace_model_override(session, workspace_id) is None
+        session.add(workspace_llm_setting(workspace_id, MODEL_KEY, "llama3.1"))
         await session.commit()
 
     async with session_factory() as session:
-        assert await tenant_model_override(session, tenant_id) == "llama3.1"
+        assert await workspace_model_override(session, workspace_id) == "llama3.1"
 
 
-async def test_tenant_default_provider(session_factory):
-    tenant_id = await create_tenant(session_factory)
+async def test_workspace_default_provider(session_factory):
+    workspace_id = await create_workspace(session_factory)
 
     async with session_factory() as session:
-        assert await tenant_default_provider(session, tenant_id) is None
-        session.add(tenant_llm_setting(tenant_id, DEFAULT_PROVIDER_KEY, " OLLAMA "))
+        assert await workspace_default_provider(session, workspace_id) is None
+        session.add(workspace_llm_setting(workspace_id, DEFAULT_PROVIDER_KEY, " OLLAMA "))
         await session.commit()
 
     async with session_factory() as session:
-        assert await tenant_default_provider(session, tenant_id) == "ollama"
+        assert await workspace_default_provider(session, workspace_id) == "ollama"

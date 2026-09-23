@@ -14,7 +14,7 @@ password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ACCESS_TOKEN_TYPE = "access"
 REFRESH_TOKEN_TYPE = "refresh"
 VISITOR_TOKEN_TYPE = "visitor"
-VISITOR_TENANT_CLAIM = "tenant_id"
+VISITOR_WORKSPACE_CLAIM = "workspace_id"
 SESSION_STARTED_CLAIM = "session_started_at"
 JWT_ALGORITHM = "HS256"
 
@@ -22,7 +22,7 @@ JWT_ALGORITHM = "HS256"
 @dataclass(frozen=True)
 class VisitorIdentity:
     subject: str
-    tenant_id: int
+    workspace_id: int
 
 
 @dataclass(frozen=True)
@@ -164,13 +164,13 @@ def decode_refresh_token(token: str) -> RefreshIdentity:
     return RefreshIdentity(user_id=user_id, session_started_at=session_started_at)
 
 
-def create_visitor_token(tenant_id: int, expires_delta: timedelta | None = None) -> str:
+def create_visitor_token(workspace_id: int, expires_delta: timedelta | None = None) -> str:
     issued_at = datetime.now(timezone.utc)
     delta = expires_delta or timedelta(days=settings.visitor_token_expire_days)
     payload = {
         "sub": secrets.token_urlsafe(24),
         "type": VISITOR_TOKEN_TYPE,
-        VISITOR_TENANT_CLAIM: tenant_id,
+        VISITOR_WORKSPACE_CLAIM: workspace_id,
         "jti": secrets.token_urlsafe(16),
         "iat": issued_at,
         "exp": issued_at + delta,
@@ -191,8 +191,8 @@ def decode_visitor_token(token: str) -> VisitorIdentity:
     if not subject:
         raise TokenError("Visitor token is missing the subject")
 
-    tenant_id = payload.get(VISITOR_TENANT_CLAIM)
-    if not isinstance(tenant_id, int):
-        raise TokenError("Visitor token is missing the tenant")
+    workspace_id = payload.get(VISITOR_WORKSPACE_CLAIM)
+    if not isinstance(workspace_id, int):
+        raise TokenError("Visitor token is missing the workspace")
 
-    return VisitorIdentity(subject=str(subject), tenant_id=tenant_id)
+    return VisitorIdentity(subject=str(subject), workspace_id=workspace_id)

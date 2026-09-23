@@ -9,8 +9,8 @@ vi.mock("@/features/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { id: 1, email: "user@example.com" } }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ activeTenant: { id: 1 } }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ activeWorkspace: { id: 1, default_locale: "en" } }),
 }));
 
 const apiMock = vi.hoisted(() => ({
@@ -28,11 +28,11 @@ beforeEach(() => {
     "NEXT_PUBLIC_WIDGET_SCRIPT_URL",
     "http://localhost:8080/embed-rag-chatbot.js",
   );
-  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "OWNER" });
+  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, workspace_id: 1, role: "OWNER" });
   apiMock.apiKeys.list.mockResolvedValue([
     {
       id: 1,
-      tenant_id: 1,
+      workspace_id: 1,
       name: "Widget",
       prefix: "jrk_abc",
       is_active: true,
@@ -66,7 +66,7 @@ describe("EmbedKeysPanel", () => {
   });
 
   it("is hidden for a member", async () => {
-    apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "MEMBER" });
+    apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, workspace_id: 1, role: "MEMBER" });
 
     const { container } = render(<EmbedKeysPanel />);
 
@@ -84,6 +84,7 @@ describe("EmbedKeysPanel", () => {
     expect(snippet).toHaveTextContent(
       'src="http://localhost:8080/embed-rag-chatbot.js"',
     );
+    expect(snippet).toHaveTextContent('data-locale="en"');
     expect(snippet).not.toHaveTextContent("data-api-url");
   });
 

@@ -17,9 +17,9 @@ router = APIRouter()
 READERS = (MembershipRole.OWNER, MembershipRole.ADMIN)
 
 
-@router.get("/{tenant_id}/conversations", response_model=List[ConversationRead])
+@router.get("/{workspace_id}/conversations", response_model=List[ConversationRead])
 async def list_conversations(
-    tenant_id: int,
+    workspace_id: int,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     membership: Membership = Depends(require_role(*READERS)),
@@ -27,7 +27,7 @@ async def list_conversations(
 ) -> List[Conversation]:
     statement = (
         select(Conversation)
-        .where(Conversation.tenant_id == tenant_id)
+        .where(Conversation.workspace_id == workspace_id)
         .order_by(Conversation.updated_at.desc())
         .offset(offset)
         .limit(limit)
@@ -36,11 +36,11 @@ async def list_conversations(
 
 
 @router.get(
-    "/{tenant_id}/conversations/{conversation_id}",
+    "/{workspace_id}/conversations/{conversation_id}",
     response_model=ConversationDetail,
 )
 async def get_conversation(
-    tenant_id: int,
+    workspace_id: int,
     conversation_id: int,
     membership: Membership = Depends(require_role(*READERS)),
     session: AsyncSession = Depends(get_session),
@@ -49,7 +49,7 @@ async def get_conversation(
         select(Conversation)
         .where(
             Conversation.id == conversation_id,
-            Conversation.tenant_id == tenant_id,
+            Conversation.workspace_id == workspace_id,
         )
         .options(selectinload(Conversation.messages))
     )
@@ -64,17 +64,17 @@ async def get_conversation(
 
 
 @router.delete(
-    "/{tenant_id}/conversations/{conversation_id}",
+    "/{workspace_id}/conversations/{conversation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_conversation(
-    tenant_id: int,
+    workspace_id: int,
     conversation_id: int,
     membership: Membership = Depends(require_role(*READERS)),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     conversation = await session.get(Conversation, conversation_id)
-    if conversation is None or conversation.tenant_id != tenant_id:
+    if conversation is None or conversation.workspace_id != workspace_id:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "CONVERSATION_NOT_FOUND",

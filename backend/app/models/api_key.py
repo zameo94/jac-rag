@@ -11,7 +11,7 @@ class ApiKey(ApiKeyBase, table=True):
     __tablename__ = "api_keys"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: int = Field(foreign_key="tenants.id", ondelete="CASCADE")
+    workspace_id: int = Field(foreign_key="workspaces.id", ondelete="CASCADE")
     key_hash: str = Field(index=True, unique=True, max_length=64)
     created_by: int = Field(foreign_key="users.id", ondelete="CASCADE")
     created_at: Optional[datetime] = Field(

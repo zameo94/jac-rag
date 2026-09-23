@@ -22,39 +22,39 @@ def _to_member(membership: Membership, user: User) -> MemberRead:
     return MemberRead(
         id=membership.id,
         user_id=membership.user_id,
-        tenant_id=membership.tenant_id,
+        workspace_id=membership.workspace_id,
         role=membership.role,
         email=user.email,
         created_at=membership.created_at,
     )
 
 
-@router.get("/{tenant_id}/me", response_model=MembershipRead)
+@router.get("/{workspace_id}/me", response_model=MembershipRead)
 async def my_membership(
     membership: Membership = Depends(get_current_membership),
 ) -> Membership:
     return membership
 
 
-@router.get("/{tenant_id}/members", response_model=List[MemberRead])
+@router.get("/{workspace_id}/members", response_model=List[MemberRead])
 async def list_members(
-    tenant_id: int,
+    workspace_id: int,
     membership: Membership = Depends(get_current_membership),
     session: AsyncSession = Depends(get_session),
 ) -> List[MemberRead]:
     statement = (
         select(Membership, User)
         .join(User, User.id == Membership.user_id)
-        .where(Membership.tenant_id == tenant_id)
+        .where(Membership.workspace_id == workspace_id)
         .order_by(Membership.id)
     )
     rows = (await session.exec(statement)).all()
     return [_to_member(member, user) for member, user in rows]
 
 
-@router.patch("/{tenant_id}/members/{user_id}", response_model=MemberRead)
+@router.patch("/{workspace_id}/members/{user_id}", response_model=MemberRead)
 async def update_member_role(
-    tenant_id: int,
+    workspace_id: int,
     user_id: int,
     payload: MemberUpdate,
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
@@ -63,7 +63,7 @@ async def update_member_role(
     target = (
         await session.exec(
             select(Membership).where(
-                Membership.tenant_id == tenant_id,
+                Membership.workspace_id == workspace_id,
                 Membership.user_id == user_id,
             )
         )
@@ -73,7 +73,7 @@ async def update_member_role(
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "MEMBER_NOT_FOUND",
-            "The user is not a member of this tenant",
+            "The user is not a member of this workspace",
         )
 
     if target.role is MembershipRole.OWNER:
@@ -92,9 +92,9 @@ async def update_member_role(
     return _to_member(target, user)
 
 
-@router.delete("/{tenant_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{workspace_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_member(
-    tenant_id: int,
+    workspace_id: int,
     user_id: int,
     membership: Membership = Depends(require_role(MembershipRole.OWNER, MembershipRole.ADMIN)),
     session: AsyncSession = Depends(get_session),
@@ -103,13 +103,13 @@ async def remove_member(
         raise api_error(
             status.HTTP_403_FORBIDDEN,
             "CANNOT_REMOVE_SELF",
-            "You cannot remove yourself from the tenant",
+            "You cannot remove yourself from the workspace",
         )
 
     target = (
         await session.exec(
             select(Membership).where(
-                Membership.tenant_id == tenant_id,
+                Membership.workspace_id == workspace_id,
                 Membership.user_id == user_id,
             )
         )
@@ -119,14 +119,14 @@ async def remove_member(
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "MEMBER_NOT_FOUND",
-            "The user is not a member of this tenant",
+            "The user is not a member of this workspace",
         )
 
     if target.role is MembershipRole.OWNER:
         raise api_error(
             status.HTTP_403_FORBIDDEN,
             "CANNOT_REMOVE_OWNER",
-            "The owner cannot be removed from the tenant",
+            "The owner cannot be removed from the workspace",
         )
 
     await session.delete(target)

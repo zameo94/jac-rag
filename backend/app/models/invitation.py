@@ -11,7 +11,7 @@ class Invitation(InvitationBase, table=True):
     __tablename__ = "invitations"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: int = Field(foreign_key="tenants.id", ondelete="CASCADE")
+    workspace_id: int = Field(foreign_key="workspaces.id", ondelete="CASCADE")
     token_hash: str = Field(index=True, unique=True, max_length=64)
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)

@@ -6,7 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.schemas.setting import SettingScope
 from app.services.crypto import decrypt, encrypt
-from app.services.llm.resolution.tenant import LLM_SETTING_TYPE
+from app.services.llm.resolution.workspace import LLM_SETTING_TYPE
 from app.services.settings import get_value, set_value
 
 EXTERNAL_BASE_URL_KEY = "external_base_url"
@@ -22,16 +22,16 @@ class ExternalConfig:
 
 
 async def external_config(
-    session: AsyncSession, tenant_id: int
+    session: AsyncSession, workspace_id: int
 ) -> ExternalConfig | None:
     base_url = await get_value(
-        session, SettingScope.TENANT, tenant_id, LLM_SETTING_TYPE, EXTERNAL_BASE_URL_KEY
+        session, SettingScope.WORKSPACE, workspace_id, LLM_SETTING_TYPE, EXTERNAL_BASE_URL_KEY
     )
     model = await get_value(
-        session, SettingScope.TENANT, tenant_id, LLM_SETTING_TYPE, EXTERNAL_MODEL_KEY
+        session, SettingScope.WORKSPACE, workspace_id, LLM_SETTING_TYPE, EXTERNAL_MODEL_KEY
     )
     encrypted = await get_value(
-        session, SettingScope.TENANT, tenant_id, LLM_SETTING_TYPE, EXTERNAL_API_KEY_KEY
+        session, SettingScope.WORKSPACE, workspace_id, LLM_SETTING_TYPE, EXTERNAL_API_KEY_KEY
     )
     if not (
         isinstance(base_url, str)
@@ -51,7 +51,7 @@ async def external_config(
 
 async def set_external_config(
     session: AsyncSession,
-    tenant_id: int,
+    workspace_id: int,
     *,
     base_url: str,
     model: str,
@@ -59,24 +59,24 @@ async def set_external_config(
 ) -> None:
     await set_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         EXTERNAL_BASE_URL_KEY,
         base_url.strip(),
     )
     await set_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         EXTERNAL_MODEL_KEY,
         model.strip(),
     )
     await set_value(
         session,
-        SettingScope.TENANT,
-        tenant_id,
+        SettingScope.WORKSPACE,
+        workspace_id,
         LLM_SETTING_TYPE,
         EXTERNAL_API_KEY_KEY,
         encrypt(api_key),

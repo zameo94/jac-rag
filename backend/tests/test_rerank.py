@@ -181,16 +181,16 @@ async def qdrant():
     app.dependency_overrides.pop(chat_module.get_vector_client, None)
 
 
-async def create_tenant(client, headers) -> int:
-    response = await client.post("/api/v1/tenants", json={"name": "Acme"}, headers=headers)
+async def create_workspace(client, headers) -> int:
+    response = await client.post("/api/v1/workspaces", json={"name": "Acme"}, headers=headers)
     return response.json()["id"]
 
 
-async def index_texts(qdrant, tenant_id: int, texts) -> None:
+async def index_texts(qdrant, workspace_id: int, texts) -> None:
     vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
-        tenant_id,
+        workspace_id,
         1,
         "doc.md",
         [(index, text) for index, text in enumerate(texts)],
@@ -202,12 +202,12 @@ async def test_chat_uses_reranked_context(client, qdrant, monkeypatch):
     monkeypatch.setenv("RERANK_ENABLED", "true")
     get_settings.cache_clear()
     headers = await register_and_login(client, "rerank-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
 
     fake = FakeProvider()
 
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return fake, "llama3.2"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -217,7 +217,7 @@ async def test_chat_uses_reranked_context(client, qdrant, monkeypatch):
     )
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY},
         headers=headers,
     )
@@ -232,12 +232,12 @@ async def test_chat_releases_reranker_before_generation(client, qdrant, monkeypa
     monkeypatch.setenv("RERANK_MODE", "on_demand")
     get_settings.cache_clear()
     headers = await register_and_login(client, "release-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
 
     order: list[str] = []
 
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return OrderedProvider(order), "llama3.2"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -251,7 +251,7 @@ async def test_chat_releases_reranker_before_generation(client, qdrant, monkeypa
     )
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY},
         headers=headers,
     )
@@ -265,12 +265,12 @@ async def test_chat_keeps_reranker_when_warmup(client, qdrant, monkeypatch):
     monkeypatch.setenv("RERANK_MODE", "warmup")
     get_settings.cache_clear()
     headers = await register_and_login(client, "warmup-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT, "contenuto diverso senza risposta"])
 
     order: list[str] = []
 
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return OrderedProvider(order), "llama3.2"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -284,7 +284,7 @@ async def test_chat_keeps_reranker_when_warmup(client, qdrant, monkeypatch):
     )
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY},
         headers=headers,
     )
@@ -298,18 +298,18 @@ async def test_chat_context_is_capped_by_chat_context_k(client, qdrant, monkeypa
     monkeypatch.setenv("CHAT_CONTEXT_K", "2")
     get_settings.cache_clear()
     headers = await register_and_login(client, "cap-owner@example.com")
-    tenant_id = await create_tenant(client, headers)
-    await index_texts(qdrant, tenant_id, [f"{CHUNK_TEXT} {i}" for i in range(5)])
+    workspace_id = await create_workspace(client, headers)
+    await index_texts(qdrant, workspace_id, [f"{CHUNK_TEXT} {i}" for i in range(5)])
 
     fake = FakeProvider()
 
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return fake, "llama3.2"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
 
     response = await client.post(
-        f"/api/v1/tenants/{tenant_id}/chat",
+        f"/api/v1/workspaces/{workspace_id}/chat",
         json={"message": QUERY},
         headers=headers,
     )

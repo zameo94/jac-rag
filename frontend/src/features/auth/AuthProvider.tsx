@@ -1,11 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useLocale } from "next-intl";
 
 import { useRouter } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/lib/api-error";
-import { activeTenantStore } from "@/lib/active-tenant-store";
+import { activeWorkspaceStore } from "@/lib/active-workspace-store";
 import {
   SESSION_IDLE_TIMEOUT_MS,
   useSessionIdle,
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const locale = useLocale();
 
   const refreshUser = useCallback(async () => {
     try {
@@ -49,6 +51,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshUser();
   }, [refreshUser]);
+
+  useEffect(() => {
+    if (!user || user.locale === locale) return;
+    let active = true;
+    void api.auth
+      .updateLocale(locale)
+      .then((updated) => {
+        if (active) setUser(updated);
+      })
+      .catch(() => {
+        // best effort: keep the session even if the preference is not saved
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, locale]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -73,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore: cookies are cleared client-side by the redirect below
     }
-    activeTenantStore.clear();
+    activeWorkspaceStore.clear();
     setUser(null);
     router.push("/login");
   }, [router]);

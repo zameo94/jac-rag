@@ -6,7 +6,7 @@ import { WorkspaceGuard } from "@/features/workspaces/WorkspaceGuard";
 const replace = vi.fn();
 
 const state = vi.hoisted(() => ({
-  tenants: [] as { id: number }[],
+  workspaces: [] as { id: number }[],
   loading: false,
   pathname: "/dashboard",
 }));
@@ -16,13 +16,13 @@ vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ replace }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ tenants: state.tenants, loading: state.loading }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ workspaces: state.workspaces, loading: state.loading }),
 }));
 
 beforeEach(() => {
   replace.mockClear();
-  state.tenants = [];
+  state.workspaces = [];
   state.loading = false;
   state.pathname = "/dashboard";
 });
@@ -65,7 +65,7 @@ describe("WorkspaceGuard", () => {
   });
 
   it("does not redirect a user with at least one workspace", async () => {
-    state.tenants = [{ id: 1 }];
+    state.workspaces = [{ id: 1 }];
     state.pathname = "/dashboard/settings";
 
     render(
@@ -77,7 +77,7 @@ describe("WorkspaceGuard", () => {
     await waitFor(() => expect(replace).not.toHaveBeenCalled());
   });
 
-  it("waits while tenants are still loading", async () => {
+  it("waits while workspaces are still loading", async () => {
     state.loading = true;
     state.pathname = "/dashboard/documents";
 

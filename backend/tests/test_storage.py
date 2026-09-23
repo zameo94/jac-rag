@@ -4,10 +4,10 @@ from app.services import storage
 from app.services.storage import StorageError
 
 
-def test_save_upload_creates_file_in_tenant_dir(tmp_path):
+def test_save_upload_creates_file_in_workspace_dir(tmp_path):
     path = storage.save_upload(7, "abc.txt", b"hello")
 
-    assert path.endswith("tenant_7/abc.txt")
+    assert path.endswith("workspace_7/abc.txt")
     with open(path, "rb") as handle:
         assert handle.read() == b"hello"
 
@@ -15,7 +15,7 @@ def test_save_upload_creates_file_in_tenant_dir(tmp_path):
 def test_save_upload_creates_directory_when_missing():
     path = storage.save_upload(99, "file.txt", b"data")
 
-    assert "tenant_99" in path
+    assert "workspace_99" in path
 
 
 def test_save_upload_rejects_path_traversal():

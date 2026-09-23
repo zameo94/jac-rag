@@ -10,7 +10,7 @@ from app.schemas.membership import MembershipBase
 class Membership(MembershipBase, table=True):
     __tablename__ = "memberships"
     __table_args__ = (
-        UniqueConstraint("user_id", "tenant_id", name="uq_memberships_user_tenant"),
+        UniqueConstraint("user_id", "workspace_id", name="uq_memberships_user_workspace"),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)

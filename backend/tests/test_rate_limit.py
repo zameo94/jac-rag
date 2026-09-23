@@ -63,7 +63,7 @@ async def test_widget_allowed_hashes_the_embed_key(monkeypatch):
     assert seen == {"identity": security.hash_token("jrk_x"), "limit": 5}
 
 
-async def test_widget_allowed_falls_back_to_tenant(monkeypatch):
+async def test_widget_allowed_falls_back_to_workspace(monkeypatch):
     monkeypatch.setenv("WIDGET_RATE_LIMIT_PER_MINUTE", "5")
     get_settings.cache_clear()
     seen: dict = {}
@@ -76,7 +76,7 @@ async def test_widget_allowed_falls_back_to_tenant(monkeypatch):
 
     await rate_limit.widget_allowed(None, 7)
 
-    assert seen["identity"] == "tenant:7"
+    assert seen["identity"] == "workspace:7"
 
 
 async def test_check_rate_limit_fails_open_on_redis_error():

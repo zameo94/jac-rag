@@ -6,10 +6,10 @@ from app.schemas.setting import SettingScope
 from app.services.llm.base import LLMProviderError
 from app.services.llm.resolution.capability import ProviderCapability
 from app.services.llm.resolution.defaults import global_default_provider
-from app.services.llm.resolution.tenant import (
+from app.services.llm.resolution.workspace import (
     LLM_SETTING_TYPE,
-    available_providers_for_tenant,
-    tenant_default_provider,
+    available_providers_for_workspace,
+    workspace_default_provider,
 )
 from app.services.settings import get_value, set_value
 
@@ -32,18 +32,18 @@ async def user_selected_provider(
 
 
 async def set_user_provider(
-    session: AsyncSession, tenant_id: int, user_id: int, provider_id: str
+    session: AsyncSession, workspace_id: int, user_id: int, provider_id: str
 ) -> str:
     """Select the single provider for a user, rejecting any unavailable one."""
     available = {
         capability.id
-        for capability in await available_providers_for_tenant(session, tenant_id)
+        for capability in await available_providers_for_workspace(session, workspace_id)
     }
     normalized = provider_id.strip().lower()
     if normalized not in available:
         raise LLMProviderError(
             "PROVIDER_NOT_AVAILABLE",
-            f"Provider '{provider_id}' is not available for this tenant",
+            f"Provider '{provider_id}' is not available for this workspace",
         )
     await set_value(
         session,
@@ -56,26 +56,26 @@ async def set_user_provider(
     return normalized
 
 
-async def resolve_tenant_provider(
-    session: AsyncSession, tenant_id: int
+async def resolve_workspace_provider(
+    session: AsyncSession, workspace_id: int
 ) -> ProviderCapability:
     """The single provider for an actor without a personal selection (widget).
 
-    Priority: the tenant default, then the global default, then the only
-    available provider. Candidates are filtered by the tenant's allowed set and
-    the global capability, so a global default can never bypass tenant policy.
+    Priority: the workspace default, then the global default, then the only
+    available provider. Candidates are filtered by the workspace's allowed set and
+    the global capability, so a global default can never bypass workspace policy.
     """
-    available = await available_providers_for_tenant(session, tenant_id)
+    available = await available_providers_for_workspace(session, workspace_id)
     if not available:
         raise LLMProviderError(
             "NO_PROVIDER_AVAILABLE",
-            "No LLM provider is available for this tenant",
+            "No LLM provider is available for this workspace",
         )
     by_id = {capability.id: capability for capability in available}
 
-    tenant_default = await tenant_default_provider(session, tenant_id)
-    if tenant_default is not None and tenant_default in by_id:
-        return by_id[tenant_default]
+    workspace_default = await workspace_default_provider(session, workspace_id)
+    if workspace_default is not None and workspace_default in by_id:
+        return by_id[workspace_default]
 
     global_default = await global_default_provider(session)
     if global_default is not None and global_default in by_id:
@@ -91,21 +91,21 @@ async def resolve_tenant_provider(
 
 
 async def resolve_user_provider(
-    session: AsyncSession, tenant_id: int, user_id: int
+    session: AsyncSession, workspace_id: int, user_id: int
 ) -> ProviderCapability:
     """The single provider a user request must use.
 
-    Priority: the user's explicit selection, then the tenant default, then the
-    global default. Every candidate is filtered by the tenant's allowed
+    Priority: the user's explicit selection, then the workspace default, then the
+    global default. Every candidate is filtered by the workspace's allowed
     providers and the global capability, so a global default can never bypass
-    tenant policy. Exactly one provider is returned: there is no fallback, no
+    workspace policy. Exactly one provider is returned: there is no fallback, no
     parallel or multi-provider execution.
     """
-    available = await available_providers_for_tenant(session, tenant_id)
+    available = await available_providers_for_workspace(session, workspace_id)
     if not available:
         raise LLMProviderError(
             "NO_PROVIDER_AVAILABLE",
-            "No LLM provider is available for this tenant",
+            "No LLM provider is available for this workspace",
         )
     by_id = {capability.id: capability for capability in available}
 
@@ -114,8 +114,8 @@ async def resolve_user_provider(
         if selected not in by_id:
             raise LLMProviderError(
                 "PROVIDER_NOT_AVAILABLE",
-                f"Selected provider '{selected}' is not available for this tenant",
+                f"Selected provider '{selected}' is not available for this workspace",
             )
         return by_id[selected]
 
-    return await resolve_tenant_provider(session, tenant_id)
+    return await resolve_workspace_provider(session, workspace_id)

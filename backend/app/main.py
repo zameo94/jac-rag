@@ -12,7 +12,7 @@ from app.api.v1 import (
     invitations,
     llm,
     members,
-    tenants,
+    workspaces,
     widget,
 )
 from app.core.config import APP_NAME, APP_VERSION, get_settings
@@ -61,16 +61,16 @@ app.add_middleware(
 register_exception_handlers(app)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-app.include_router(tenants.router, prefix="/api/v1/tenants", tags=["Tenants"])
-app.include_router(members.router, prefix="/api/v1/tenants", tags=["Members"])
+app.include_router(workspaces.router, prefix="/api/v1/workspaces", tags=["Workspaces"])
+app.include_router(members.router, prefix="/api/v1/workspaces", tags=["Members"])
 app.include_router(invitations.router, prefix="/api/v1", tags=["Invitations"])
-app.include_router(documents.router, prefix="/api/v1/tenants", tags=["Documents"])
-app.include_router(api_keys.router, prefix="/api/v1/tenants", tags=["API keys"])
-app.include_router(chat.router, prefix="/api/v1/tenants", tags=["Chat"])
+app.include_router(documents.router, prefix="/api/v1/workspaces", tags=["Documents"])
+app.include_router(api_keys.router, prefix="/api/v1/workspaces", tags=["API keys"])
+app.include_router(chat.router, prefix="/api/v1/workspaces", tags=["Chat"])
 app.include_router(
-    conversations.router, prefix="/api/v1/tenants", tags=["Conversations"]
+    conversations.router, prefix="/api/v1/workspaces", tags=["Conversations"]
 )
-app.include_router(llm.router, prefix="/api/v1/tenants", tags=["LLM"])
+app.include_router(llm.router, prefix="/api/v1/workspaces", tags=["LLM"])
 app.include_router(widget.router, prefix="/api/v1/widget", tags=["Widget"])
 
 

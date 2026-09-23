@@ -7,7 +7,7 @@ from sqlmodel import select
 from app.api.v1 import chat as chat_module
 from app.core import security
 from app.main import app
-from app.models import ApiKey, Conversation, Message, Tenant
+from app.models import ApiKey, Conversation, Message, Workspace
 from app.services.llm import LLMProvider, LLMResponse
 from app.services.rag import embeddings, vector_store
 from tests.helpers import register_and_login, user_id_for
@@ -50,7 +50,7 @@ class FakeProvider(LLMProvider):
 
 
 def patch_provider(monkeypatch, provider) -> None:
-    async def build(session, tenant_id, provider_id, model=None):
+    async def build(session, workspace_id, provider_id, model=None):
         return provider, "test-model"
 
     monkeypatch.setattr("app.services.rag.chat.prepare.build_provider", build)
@@ -69,18 +69,18 @@ async def qdrant():
     app.dependency_overrides.pop(chat_module.get_vector_client, None)
 
 
-async def create_tenant_with_key(client, session_factory, email: str) -> tuple[int, str]:
+async def create_workspace_with_key(client, session_factory, email: str) -> tuple[int, str]:
     headers = await register_and_login(client, email)
     owner_id = await user_id_for(client, headers)
     response = await client.post(
-        "/api/v1/tenants", json={"name": email.split("@")[0]}, headers=headers
+        "/api/v1/workspaces", json={"name": email.split("@")[0]}, headers=headers
     )
-    tenant_id = response.json()["id"]
+    workspace_id = response.json()["id"]
     plaintext = security.generate_embed_key()
     async with session_factory() as session:
         session.add(
             ApiKey(
-                tenant_id=tenant_id,
+                workspace_id=workspace_id,
                 name="Widget",
                 prefix=security.embed_key_prefix(plaintext),
                 key_hash=security.hash_token(plaintext),
@@ -88,7 +88,7 @@ async def create_tenant_with_key(client, session_factory, email: str) -> tuple[i
             )
         )
         await session.commit()
-    return tenant_id, plaintext
+    return workspace_id, plaintext
 
 
 async def open_session(client, embed_key: str) -> str:
@@ -98,11 +98,11 @@ async def open_session(client, embed_key: str) -> str:
     return response.json()["visitor_token"]
 
 
-async def index_texts(qdrant, tenant_id: int, texts) -> None:
+async def index_texts(qdrant, workspace_id: int, texts) -> None:
     vectors = await embeddings.embed_texts(texts)
     await vector_store.upsert_chunks(
         qdrant,
-        tenant_id,
+        workspace_id,
         1,
         "doc.md",
         [(index, text) for index, text in enumerate(texts)],
@@ -114,8 +114,8 @@ def widget_headers(embed_key: str, visitor_token: str) -> dict[str, str]:
     return {"X-Embed-Key": embed_key, "X-Visitor-Token": visitor_token}
 
 
-async def test_widget_config_returns_tenant_info(client, session_factory):
-    _, embed_key = await create_tenant_with_key(client, session_factory, "cfg@example.com")
+async def test_widget_config_returns_workspace_info(client, session_factory):
+    _, embed_key = await create_workspace_with_key(client, session_factory, "cfg@example.com")
 
     response = await client.get(
         "/api/v1/widget/config", headers={"X-Embed-Key": embed_key}
@@ -123,7 +123,7 @@ async def test_widget_config_returns_tenant_info(client, session_factory):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["tenant_name"] == "cfg"
+    assert body["workspace_name"] == "cfg"
     assert body["answer_mode"] == "strict"
     assert body["default_locale"]
     assert body["is_active"] is True
@@ -135,10 +135,10 @@ async def test_widget_config_returns_tenant_info(client, session_factory):
 async def test_widget_chat_persists_conversation_for_visitor(
     client, qdrant, session_factory, monkeypatch
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "chatwidget@example.com"
     )
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
     visitor_token = await open_session(client, embed_key)
@@ -164,18 +164,18 @@ async def test_widget_chat_persists_conversation_for_visitor(
     assert [m.role.value for m in messages] == ["user", "assistant"]
 
 
-async def test_widget_chat_is_blocked_when_tenant_inactive(
+async def test_widget_chat_is_blocked_when_workspace_inactive(
     client, qdrant, session_factory, monkeypatch
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "inactive@example.com"
     )
     patch_provider(monkeypatch, FakeProvider())
     visitor_token = await open_session(client, embed_key)
     async with session_factory() as session:
-        tenant = await session.get(Tenant, tenant_id)
-        tenant.is_active = False
-        session.add(tenant)
+        workspace = await session.get(Workspace, workspace_id)
+        workspace.is_active = False
+        session.add(workspace)
         await session.commit()
 
     response = await client.post(
@@ -185,11 +185,11 @@ async def test_widget_chat_is_blocked_when_tenant_inactive(
     )
 
     assert response.status_code == 403
-    assert response.json()["code"] == "TENANT_INACTIVE"
+    assert response.json()["code"] == "WORKSPACE_INACTIVE"
 
 
 async def test_widget_chat_requires_visitor_token(client, qdrant, session_factory):
-    _, embed_key = await create_tenant_with_key(
+    _, embed_key = await create_workspace_with_key(
         client, session_factory, "notoken@example.com"
     )
 
@@ -206,10 +206,10 @@ async def test_widget_chat_requires_visitor_token(client, qdrant, session_factor
 async def test_widget_chat_rejects_foreign_visitor_token(
     client, qdrant, session_factory
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "mismatch@example.com"
     )
-    foreign = security.create_visitor_token(tenant_id + 999)
+    foreign = security.create_visitor_token(workspace_id + 999)
 
     response = await client.post(
         "/api/v1/widget/chat",
@@ -218,16 +218,16 @@ async def test_widget_chat_rejects_foreign_visitor_token(
     )
 
     assert response.status_code == 403
-    assert response.json()["code"] == "VISITOR_TENANT_MISMATCH"
+    assert response.json()["code"] == "VISITOR_WORKSPACE_MISMATCH"
 
 
 async def test_widget_chat_stream_emits_events(
     client, qdrant, session_factory, monkeypatch
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "streamwidget@example.com"
     )
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     provider = FakeProvider()
     patch_provider(monkeypatch, provider)
     visitor_token = await open_session(client, embed_key)
@@ -260,10 +260,10 @@ async def test_widget_chat_is_rate_limited(client, qdrant, session_factory, monk
 
     monkeypatch.setattr("app.services.rate_limit.check_rate_limit", deny)
 
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "limited@example.com"
     )
-    visitor_token = security.create_visitor_token(tenant_id)
+    visitor_token = security.create_visitor_token(workspace_id)
 
     response = await client.post(
         "/api/v1/widget/chat",
@@ -293,7 +293,7 @@ async def test_widget_session_is_rate_limited(client, session_factory, monkeypat
 
     monkeypatch.setattr("app.services.rate_limit.check_rate_limit", deny)
 
-    _, embed_key = await create_tenant_with_key(
+    _, embed_key = await create_workspace_with_key(
         client, session_factory, "limited-session@example.com"
     )
 
@@ -308,10 +308,10 @@ async def test_widget_session_is_rate_limited(client, session_factory, monkeypat
 async def test_widget_conversations_are_isolated_per_visitor(
     client, qdrant, session_factory, monkeypatch
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "isolation@example.com"
     )
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     patch_provider(monkeypatch, FakeProvider())
 
     first_token = await open_session(client, embed_key)
@@ -356,10 +356,10 @@ async def test_widget_conversations_are_isolated_per_visitor(
 async def test_widget_conversations_are_paginated(
     client, qdrant, session_factory, monkeypatch
 ):
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "paged@example.com"
     )
-    await index_texts(qdrant, tenant_id, [CHUNK_TEXT])
+    await index_texts(qdrant, workspace_id, [CHUNK_TEXT])
     patch_provider(monkeypatch, FakeProvider())
     visitor_token = await open_session(client, embed_key)
     headers = widget_headers(embed_key, visitor_token)
@@ -394,10 +394,10 @@ async def test_widget_read_routes_are_rate_limited(client, session_factory, monk
 
     monkeypatch.setattr("app.services.rate_limit.check_rate_limit", deny)
 
-    tenant_id, embed_key = await create_tenant_with_key(
+    workspace_id, embed_key = await create_workspace_with_key(
         client, session_factory, "limited-read@example.com"
     )
-    visitor_token = security.create_visitor_token(tenant_id)
+    visitor_token = security.create_visitor_token(workspace_id)
     headers = widget_headers(embed_key, visitor_token)
 
     config = await client.get("/api/v1/widget/config", headers=headers)
@@ -415,7 +415,7 @@ async def test_widget_read_routes_are_rate_limited(client, session_factory, monk
 async def test_widget_chat_honours_request_locale(
     client, qdrant, session_factory, monkeypatch
 ):
-    _, embed_key = await create_tenant_with_key(
+    _, embed_key = await create_workspace_with_key(
         client, session_factory, "localewidget@example.com"
     )
     patch_provider(monkeypatch, FakeProvider())
@@ -446,7 +446,7 @@ async def test_widget_chat_honours_request_locale(
 async def test_widget_chat_stream_honours_request_locale(
     client, qdrant, session_factory, monkeypatch
 ):
-    _, embed_key = await create_tenant_with_key(
+    _, embed_key = await create_workspace_with_key(
         client, session_factory, "localestream@example.com"
     )
     patch_provider(monkeypatch, FakeProvider())
@@ -469,7 +469,7 @@ async def test_widget_chat_stream_honours_request_locale(
 async def test_widget_chat_rejects_unsupported_locale(
     client, qdrant, session_factory
 ):
-    _, embed_key = await create_tenant_with_key(
+    _, embed_key = await create_workspace_with_key(
         client, session_factory, "badlocale@example.com"
     )
     visitor_token = await open_session(client, embed_key)

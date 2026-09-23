@@ -4,55 +4,55 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
 import type { Conversation, ConversationDetail, MembershipRole } from "@/lib/types";
 
 export function ConversationsPanel() {
   const t = useTranslations("conversations");
   const common = useTranslations("common");
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const [items, setItems] = useState<Conversation[]>([]);
   const [role, setRole] = useState<MembershipRole | null>(null);
   const [selected, setSelected] = useState<ConversationDetail | null>(null);
   const [error, setError] = useState<unknown>(null);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
   const isManager = role === "OWNER" || role === "ADMIN";
 
   const load = useCallback(async () => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      const membership = await api.members.me(tenantId);
+      const membership = await api.members.me(workspaceId);
       setRole(membership.role);
       if (membership.role === "OWNER" || membership.role === "ADMIN") {
-        setItems(await api.conversations.list(tenantId));
+        setItems(await api.conversations.list(workspaceId));
       }
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (!tenantId || !isManager) return null;
+  if (!workspaceId || !isManager) return null;
 
   async function open(conversation: Conversation) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      setSelected(await api.conversations.get(tenantId, conversation.id));
+      setSelected(await api.conversations.get(workspaceId, conversation.id));
     } catch (err) {
       setError(err);
     }
   }
 
   async function remove(conversation: Conversation) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      await api.conversations.remove(tenantId, conversation.id);
+      await api.conversations.remove(workspaceId, conversation.id);
       if (selected?.id === conversation.id) setSelected(null);
       await load();
     } catch (err) {

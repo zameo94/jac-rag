@@ -7,6 +7,7 @@ from sqlalchemy import Column
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
+from app.schemas.membership import MembershipRole
 from app.schemas.user import normalize_locale_value
 
 
@@ -21,7 +22,7 @@ def slugify_value(value: str) -> str:
     return normalized.strip("-")
 
 
-class TenantBase(SQLModel):
+class WorkspaceBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
     slug: str = Field(index=True, unique=True, min_length=1, max_length=60)
     default_locale: str = Field(default="it", max_length=8)
@@ -58,11 +59,11 @@ class TenantBase(SQLModel):
         return normalize_locale_value(value)
 
 
-class TenantCreate(TenantBase):
+class WorkspaceCreate(WorkspaceBase):
     slug: Optional[str] = Field(default=None, max_length=60)
 
 
-class TenantUpdate(SQLModel):
+class WorkspaceUpdate(SQLModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     slug: Optional[str] = Field(default=None, min_length=1, max_length=60)
     default_locale: Optional[str] = Field(default=None, max_length=8)
@@ -92,5 +93,9 @@ class TenantUpdate(SQLModel):
         return normalize_locale_value(value)
 
 
-class TenantRead(TenantBase):
+class WorkspaceRead(WorkspaceBase):
     id: int
+
+
+class WorkspaceReadWithRole(WorkspaceRead):
+    role: MembershipRole

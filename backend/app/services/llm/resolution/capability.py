@@ -24,7 +24,7 @@ def provider_capabilities() -> tuple[ProviderCapability, ...]:
     """Globally available LLM providers.
 
     Ollama is always available. ``external_api`` is only globally available when
-    the deployment enables it (``EXTERNAL_API_ENABLED``); a tenant must also allow
+    the deployment enables it (``EXTERNAL_API_ENABLED``); a workspace must also allow
     it and provide its base URL, model and key.
     """
     settings = get_settings()

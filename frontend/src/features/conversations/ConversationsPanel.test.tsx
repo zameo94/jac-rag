@@ -9,8 +9,8 @@ vi.mock("@/features/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { id: 1, email: "user@example.com" } }),
 }));
 
-vi.mock("@/features/tenants/TenantProvider", () => ({
-  useTenant: () => ({ activeTenant: { id: 1 } }),
+vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
+  useWorkspace: () => ({ activeWorkspace: { id: 1 } }),
 }));
 
 const apiMock = vi.hoisted(() => ({
@@ -24,11 +24,11 @@ import { ConversationsPanel } from "@/features/conversations/ConversationsPanel"
 
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, tenant_id: 1, role: "ADMIN" });
+  apiMock.members.me.mockResolvedValue({ id: 1, user_id: 1, workspace_id: 1, role: "ADMIN" });
   apiMock.conversations.list.mockResolvedValue([
     {
       id: 7,
-      tenant_id: 1,
+      workspace_id: 1,
       user_id: null,
       end_user_id: "visitor-1",
       title: "Come si fa?",
@@ -38,7 +38,7 @@ beforeEach(() => {
   ]);
   apiMock.conversations.get.mockResolvedValue({
     id: 7,
-    tenant_id: 1,
+    workspace_id: 1,
     user_id: null,
     end_user_id: "visitor-1",
     title: "Come si fa?",

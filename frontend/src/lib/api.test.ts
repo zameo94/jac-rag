@@ -89,7 +89,7 @@ describe("api client", () => {
     await api.documents.upload(1, file);
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/tenants/1/documents");
+    expect(url).toContain("/workspaces/1/documents");
     expect(init.body).toBeInstanceOf(FormData);
     expect(init.headers["Content-Type"]).toBeUndefined();
   });

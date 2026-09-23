@@ -11,7 +11,7 @@ from app.core.errors import api_error
 from app.core.http import client_ip
 from app.database import get_session
 from app.models import User
-from app.schemas.auth import LoginRequest, RegisterRequest
+from app.schemas.auth import LoginRequest, RegisterRequest, UpdateLocaleRequest
 from app.schemas.user import UserRead
 from app.services.rate_limit import auth_allowed
 
@@ -163,4 +163,17 @@ async def logout(response: Response) -> Response:
 
 @router.get("/me", response_model=UserRead)
 async def me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_me(
+    payload: UpdateLocaleRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    current_user.locale = payload.locale
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
     return current_user

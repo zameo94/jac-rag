@@ -10,15 +10,15 @@ from app.core import security
 from app.core.config import get_settings
 from app.core.deps import (
     enforce_widget_rate_limit,
-    ensure_tenant_active,
-    get_embed_tenant,
+    ensure_workspace_active,
+    get_embed_workspace,
     get_widget_visitor,
-    resolve_embed_tenant,
+    resolve_embed_workspace,
     resolve_widget_visitor,
 )
 from app.core.errors import api_error
 from app.database import get_session, session_scope
-from app.models import Conversation, Tenant
+from app.models import Conversation, Workspace
 from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
 from app.schemas.conversation import (
     ConversationDetail,
@@ -39,45 +39,45 @@ SECONDS_PER_DAY = 86400
 
 @router.post("/session", response_model=WidgetSessionRead)
 async def create_widget_session(
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
     _: None = Depends(enforce_widget_rate_limit),
 ) -> WidgetSessionRead:
     settings = get_settings()
     return WidgetSessionRead(
-        visitor_token=security.create_visitor_token(tenant.id),
+        visitor_token=security.create_visitor_token(workspace.id),
         expires_in=settings.visitor_token_expire_days * SECONDS_PER_DAY,
-        tenant_id=tenant.id,
+        workspace_id=workspace.id,
     )
 
 
 @router.get("/config", response_model=WidgetConfigRead)
 async def widget_config(
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
     _: None = Depends(enforce_widget_rate_limit),
 ) -> WidgetConfigRead:
     return WidgetConfigRead(
-        tenant_name=tenant.name,
-        default_locale=tenant.default_locale,
-        answer_mode=tenant.answer_mode,
-        is_active=tenant.is_active,
+        workspace_name=workspace.name,
+        default_locale=workspace.default_locale,
+        answer_mode=workspace.answer_mode,
+        is_active=workspace.is_active,
     )
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def widget_chat(
     payload: ChatRequest,
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
     visitor: security.VisitorIdentity = Depends(get_widget_visitor),
     _: None = Depends(enforce_widget_rate_limit),
     session: AsyncSession = Depends(get_session),
     client: AsyncQdrantClient = Depends(get_vector_client),
 ) -> ChatResponse:
-    ensure_tenant_active(tenant)
+    ensure_workspace_active(workspace)
     try:
         prepared = await prepare_chat(
             session,
             client,
-            tenant=tenant,
+            workspace=workspace,
             message=payload.message,
             conversation_id=payload.conversation_id,
             end_user_id=visitor.subject,
@@ -113,20 +113,20 @@ async def widget_chat_stream(
     client: AsyncQdrantClient = Depends(get_vector_client),
 ) -> StreamingResponse:
     async with session_scope() as session:
-        tenant = await resolve_embed_tenant(session, x_embed_key)
-        ensure_tenant_active(tenant)
-        if not await widget_allowed(x_embed_key, tenant.id):
+        workspace = await resolve_embed_workspace(session, x_embed_key)
+        ensure_workspace_active(workspace)
+        if not await widget_allowed(x_embed_key, workspace.id):
             raise api_error(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "RATE_LIMITED",
                 "Too many requests",
             )
-        visitor = await resolve_widget_visitor(tenant, x_visitor_token)
+        visitor = await resolve_widget_visitor(workspace, x_visitor_token)
         try:
             prepared = await prepare_chat(
                 session,
                 client,
-                tenant=tenant,
+                workspace=workspace,
                 message=payload.message,
                 conversation_id=payload.conversation_id,
                 end_user_id=visitor.subject,
@@ -152,7 +152,7 @@ async def widget_chat_stream(
 async def list_widget_conversations(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
     visitor: security.VisitorIdentity = Depends(get_widget_visitor),
     _: None = Depends(enforce_widget_rate_limit),
     session: AsyncSession = Depends(get_session),
@@ -160,7 +160,7 @@ async def list_widget_conversations(
     statement = (
         select(Conversation)
         .where(
-            Conversation.tenant_id == tenant.id,
+            Conversation.workspace_id == workspace.id,
             Conversation.end_user_id == visitor.subject,
         )
         .order_by(Conversation.updated_at.desc())
@@ -173,7 +173,7 @@ async def list_widget_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 async def get_widget_conversation(
     conversation_id: int,
-    tenant: Tenant = Depends(get_embed_tenant),
+    workspace: Workspace = Depends(get_embed_workspace),
     visitor: security.VisitorIdentity = Depends(get_widget_visitor),
     _: None = Depends(enforce_widget_rate_limit),
     session: AsyncSession = Depends(get_session),
@@ -182,7 +182,7 @@ async def get_widget_conversation(
         select(Conversation)
         .where(
             Conversation.id == conversation_id,
-            Conversation.tenant_id == tenant.id,
+            Conversation.workspace_id == workspace.id,
             Conversation.end_user_id == visitor.subject,
         )
         .options(selectinload(Conversation.messages))

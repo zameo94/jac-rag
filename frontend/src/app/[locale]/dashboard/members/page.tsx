@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { useTenant } from "@/features/tenants/TenantProvider";
+import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { api } from "@/lib/api";
 import type { InvitationCreated, Member, MembershipRole } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export default function MembersPage() {
   const t = useTranslations("members");
   const common = useTranslations("common");
   const { user } = useAuth();
-  const { activeTenant } = useTenant();
+  const { activeWorkspace } = useWorkspace();
   const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [email, setEmail] = useState("");
@@ -23,19 +23,19 @@ export default function MembersPage() {
   const [invitation, setInvitation] = useState<InvitationCreated | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const tenantId = activeTenant?.id ?? null;
+  const workspaceId = activeWorkspace?.id ?? null;
   const currentMember = members.find((member) => member.email === user?.email);
   const canManage = currentMember?.role === "OWNER" || currentMember?.role === "ADMIN";
 
   const load = useCallback(async () => {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      setMembers(await api.members.list(tenantId));
+      setMembers(await api.members.list(workspaceId));
       setError(null);
     } catch (err) {
       setError(err);
     }
-  }, [tenantId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     void load();
@@ -43,10 +43,10 @@ export default function MembersPage() {
 
   async function handleInvite(event: React.FormEvent) {
     event.preventDefault();
-    if (!tenantId) return;
+    if (!workspaceId) return;
     setError(null);
     try {
-      const created = await api.invitations.create(tenantId, email, role);
+      const created = await api.invitations.create(workspaceId, email, role);
       setInvitation(created);
       setCopied(false);
       setEmail("");
@@ -57,9 +57,9 @@ export default function MembersPage() {
   }
 
   async function handleRoleChange(member: Member, nextRole: MembershipRole) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     try {
-      await api.members.updateRole(tenantId, member.user_id, nextRole);
+      await api.members.updateRole(workspaceId, member.user_id, nextRole);
       await load();
     } catch (err) {
       setError(err);
@@ -67,10 +67,10 @@ export default function MembersPage() {
   }
 
   async function handleRemove(member: Member) {
-    if (!tenantId) return;
+    if (!workspaceId) return;
     if (!window.confirm(common("confirmDelete"))) return;
     try {
-      await api.members.remove(tenantId, member.user_id);
+      await api.members.remove(workspaceId, member.user_id);
       await load();
     } catch (err) {
       setError(err);
@@ -83,7 +83,7 @@ export default function MembersPage() {
     setCopied(true);
   }
 
-  if (!tenantId) return null;
+  if (!workspaceId) return null;
 
   return (
     <section className="flex flex-col gap-6">

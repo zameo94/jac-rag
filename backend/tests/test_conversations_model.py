@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import SQLModel, select
 
 from app.database import create_engine, create_session_factory
-from app.models import Conversation, Message, Tenant, User
+from app.models import Conversation, Message, Workspace, User
 from app.schemas.conversation import MessageRole
 
 
@@ -28,21 +28,21 @@ async def fk_session_factory():
 
 async def seed(session_factory) -> tuple[int, int]:
     async with session_factory() as session:
-        tenant = Tenant(name="Acme", slug="acme")
+        workspace = Workspace(name="Acme", slug="acme")
         user = User(email="owner@example.com", locale="it", password_hash="hash")
-        session.add(tenant)
+        session.add(workspace)
         session.add(user)
         await session.commit()
-        await session.refresh(tenant)
+        await session.refresh(workspace)
         await session.refresh(user)
-        return tenant.id, user.id
+        return workspace.id, user.id
 
 
 async def test_conversation_for_user_persists(fk_session_factory):
-    tenant_id, user_id = await seed(fk_session_factory)
+    workspace_id, user_id = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
-        conversation = Conversation(tenant_id=tenant_id, user_id=user_id, title="Hello")
+        conversation = Conversation(workspace_id=workspace_id, user_id=user_id, title="Hello")
         session.add(conversation)
         await session.commit()
         await session.refresh(conversation)
@@ -54,10 +54,10 @@ async def test_conversation_for_user_persists(fk_session_factory):
 
 
 async def test_conversation_for_end_user_persists(fk_session_factory):
-    tenant_id, _ = await seed(fk_session_factory)
+    workspace_id, _ = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
-        conversation = Conversation(tenant_id=tenant_id, end_user_id="visitor-1")
+        conversation = Conversation(workspace_id=workspace_id, end_user_id="visitor-1")
         session.add(conversation)
         await session.commit()
         await session.refresh(conversation)
@@ -68,21 +68,21 @@ async def test_conversation_for_end_user_persists(fk_session_factory):
 
 
 async def test_conversation_without_actor_is_rejected(fk_session_factory):
-    tenant_id, _ = await seed(fk_session_factory)
+    workspace_id, _ = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
-        session.add(Conversation(tenant_id=tenant_id))
+        session.add(Conversation(workspace_id=workspace_id))
         with pytest.raises(IntegrityError):
             await session.commit()
 
 
 async def test_conversation_with_two_actors_is_rejected(fk_session_factory):
-    tenant_id, user_id = await seed(fk_session_factory)
+    workspace_id, user_id = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
         session.add(
             Conversation(
-                tenant_id=tenant_id, user_id=user_id, end_user_id="visitor-1"
+                workspace_id=workspace_id, user_id=user_id, end_user_id="visitor-1"
             )
         )
         with pytest.raises(IntegrityError):
@@ -90,10 +90,10 @@ async def test_conversation_with_two_actors_is_rejected(fk_session_factory):
 
 
 async def test_messages_load_with_conversation(fk_session_factory):
-    tenant_id, _ = await seed(fk_session_factory)
+    workspace_id, _ = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
-        conversation = Conversation(tenant_id=tenant_id, end_user_id="visitor-1")
+        conversation = Conversation(workspace_id=workspace_id, end_user_id="visitor-1")
         session.add(conversation)
         await session.commit()
         await session.refresh(conversation)
@@ -135,10 +135,10 @@ async def test_messages_load_with_conversation(fk_session_factory):
 
 
 async def test_deleting_conversation_cascades_messages(fk_session_factory):
-    tenant_id, _ = await seed(fk_session_factory)
+    workspace_id, _ = await seed(fk_session_factory)
 
     async with fk_session_factory() as session:
-        conversation = Conversation(tenant_id=tenant_id, end_user_id="visitor-1")
+        conversation = Conversation(workspace_id=workspace_id, end_user_id="visitor-1")
         session.add(conversation)
         await session.commit()
         await session.refresh(conversation)
