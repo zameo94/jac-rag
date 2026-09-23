@@ -173,6 +173,7 @@
     "editKey": "Modifica chiave",
     "save": "Salva",
     "saving": "Salvataggio...",
+    "saved": "Salvato",
     "providers": {
       "ollama": "Ollama (locale)",
       "external_api": "API esterna"

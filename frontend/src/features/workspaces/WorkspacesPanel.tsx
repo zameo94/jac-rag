@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -8,39 +8,15 @@ import { PencilIcon, TrashIcon } from "@/components/icons";
 import { useWorkspace } from "@/features/workspaces/WorkspaceProvider";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
-import type { MembershipRole, Workspace } from "@/lib/types";
+import type { Workspace } from "@/lib/types";
 
 export function WorkspacesPanel() {
   const t = useTranslations("workspaces");
   const { workspaces, activeWorkspace, selectWorkspace, refreshWorkspaces } = useWorkspace();
-  const [roles, setRoles] = useState<Record<number, MembershipRole>>({});
   const [error, setError] = useState<unknown>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    void Promise.all(
-      workspaces.map((workspace) =>
-        api.members
-          .me(workspace.id)
-          .then((membership) => [workspace.id, membership.role] as const)
-          .catch(() => null),
-      ),
-    ).then((entries) => {
-      if (!mounted) return;
-      const next: Record<number, MembershipRole> = {};
-      for (const entry of entries) {
-        if (entry) next[entry[0]] = entry[1];
-      }
-      setRoles(next);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [workspaces]);
-
-  function canManage(workspaceId: number): boolean {
-    const role = roles[workspaceId];
-    return role === "OWNER" || role === "ADMIN";
+  function canManage(workspace: Workspace): boolean {
+    return workspace.role === "OWNER" || workspace.role === "ADMIN";
   }
 
   async function handleDelete(workspace: Workspace) {
@@ -102,7 +78,7 @@ export function WorkspacesPanel() {
                     {t("switch")}
                   </button>
                 )}
-                {canManage(workspace.id) && (
+                {canManage(workspace) && (
                   <Link
                     href={`/dashboard/workspaces/${workspace.id}/edit`}
                     aria-label={t("edit")}
@@ -111,7 +87,7 @@ export function WorkspacesPanel() {
                     <PencilIcon className="h-4 w-4" />
                   </Link>
                 )}
-                {roles[workspace.id] === "OWNER" && (
+                {workspace.role === "OWNER" && (
                   <button
                     type="button"
                     aria-label={t("delete")}

@@ -16,6 +16,7 @@ export interface Workspace {
   default_locale: string;
   answer_mode: AnswerMode;
   is_active: boolean;
+  role?: MembershipRole;
 }
 
 export interface WorkspaceUpdate {

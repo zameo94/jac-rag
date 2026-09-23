@@ -7,6 +7,7 @@ from sqlalchemy import Column
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
+from app.schemas.membership import MembershipRole
 from app.schemas.user import normalize_locale_value
 
 
@@ -94,3 +95,7 @@ class WorkspaceUpdate(SQLModel):
 
 class WorkspaceRead(WorkspaceBase):
     id: int
+
+
+class WorkspaceReadWithRole(WorkspaceRead):
+    role: MembershipRole

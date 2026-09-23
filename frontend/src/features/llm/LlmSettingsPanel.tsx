@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -28,6 +28,8 @@ export function LlmSettingsPanel() {
   const [unlockKey, setUnlockKey] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const workspaceId = activeWorkspace?.id ?? null;
   const isAdmin = role === "OWNER" || role === "ADMIN";
@@ -61,6 +63,12 @@ export function LlmSettingsPanel() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, []);
+
   if (!workspaceId || !config) return null;
 
   const available = config.providers.filter(
@@ -71,6 +79,9 @@ export function LlmSettingsPanel() {
     if (!workspaceId) return;
     try {
       await api.llm.selectProvider(workspaceId, providerId);
+      if (isAdmin) {
+        await api.llm.updateSettings(workspaceId, { default_provider: providerId });
+      }
       setConfig((current) =>
         current ? { ...current, selected_provider: providerId } : current,
       );
@@ -104,6 +115,9 @@ export function LlmSettingsPanel() {
       setApiKey("");
       setUnlockKey(false);
       await load();
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       setError(err);
     } finally {
@@ -216,14 +230,21 @@ export function LlmSettingsPanel() {
             <span className="text-xs text-slate-500">{t("apiKeyHint")}</span>
           </div>
 
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="self-start rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-          >
-            {saving ? t("saving") : t("save")}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
+            >
+              {saving ? t("saving") : t("save")}
+            </button>
+            {saved && (
+              <span role="status" className="text-sm text-emerald-600">
+                {t("saved")}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </section>

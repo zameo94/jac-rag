@@ -173,6 +173,7 @@
     "editKey": "Edit key",
     "save": "Save",
     "saving": "Saving...",
+    "saved": "Saved",
     "providers": {
       "ollama": "Ollama (local)",
       "external_api": "External API"

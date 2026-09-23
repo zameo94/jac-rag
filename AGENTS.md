@@ -195,6 +195,9 @@ settings      (id, scope_type global|workspace|user, scope_id NULL, type, key,
 - Backend does **not** translate strings: stable error `code` + English `message`
   fallback; frontend maps `code → translation`.
 - Locale: `users.locale` + `workspaces.default_locale`; the widget passes its own locale.
+  The CMS keeps `users.locale` in sync with the UI language (`PATCH /api/v1/auth/me`), so the
+  assistant answers in the language the user is browsing in; the workspace locale is the
+  fallback.
 - Assistant answers in the user/widget locale, even if retrieved context is in another
   language.
 
@@ -380,7 +383,9 @@ message -> fastembed -> search Qdrant top-k
   bundle, served by the embed-rag-chatbot nginx image). It is **optional**: the CMS
   starts without it and the embed-keys panel shows a hint instead of the snippet. The
   API URL is baked into the widget bundle (`VITE_WIDGET_API_URL` in that repo), so the
-  snippet is only script URL + embed key. `next.config.ts` forwards `NEXT_PUBLIC_*` from
+  snippet is script URL + embed key + `data-locale` (the workspace `default_locale`, so
+  the widget answers in the workspace language instead of the visitor's browser).
+  `next.config.ts` forwards `NEXT_PUBLIC_*` from
   the root `.env` for host dev; Compose passes the value to the frontend image as an
   optional **build arg** (the `./frontend` context has no root `.env`), so changing it
   needs a rebuild.

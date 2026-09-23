@@ -100,6 +100,8 @@ async def test_list_workspaces_returns_only_memberships(client):
 
     assert [workspace["slug"] for workspace in owner_list.json()] == ["acme", "beta"]
     assert [workspace["slug"] for workspace in other_list.json()] == ["gamma"]
+    assert {workspace["role"] for workspace in owner_list.json()} == {"OWNER"}
+    assert {workspace["role"] for workspace in other_list.json()} == {"OWNER"}
 
 
 async def test_list_workspaces_requires_authentication(client):
@@ -455,3 +457,18 @@ async def test_delete_workspace_not_found(client):
 
     assert response.status_code == 404
     assert response.json()["code"] == "WORKSPACE_NOT_FOUND"
+
+
+async def test_list_workspaces_includes_membership_role(client, session_factory):
+    owner_headers = await auth_headers(client, "owner@example.com")
+    member_headers = await auth_headers(client, "member@example.com")
+    workspace = await create_workspace(client, owner_headers)
+    member_id = await user_id_for(client, member_headers)
+    await add_membership(
+        session_factory, workspace.json()["id"], member_id, MembershipRole.MEMBER
+    )
+
+    response = await client.get(WORKSPACES_URL, headers=member_headers)
+
+    assert response.status_code == 200
+    assert response.json()[0]["role"] == "MEMBER"

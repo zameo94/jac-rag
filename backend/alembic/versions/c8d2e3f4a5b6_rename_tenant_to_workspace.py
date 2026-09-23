@@ -7,6 +7,7 @@ Create Date: 2026-09-23 00:00:00.000000
 """
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 
@@ -29,34 +30,49 @@ CONSTRAINT_RENAMES = (
     ("memberships", "uq_memberships_user_tenant", "uq_memberships_user_workspace"),
 )
 
+SETTINGS_SCOPE_OLD = sa.Enum("tenant", "user", name="settingscope", native_enum=False)
+SETTINGS_SCOPE_NEW = sa.Enum(
+    "workspace", "user", "global", name="settingscope", native_enum=False
+)
+
 
 def upgrade() -> None:
     """Upgrade schema."""
     op.rename_table("tenants", "workspaces")
     for table in WORKSPACE_ID_TABLES:
         op.alter_column(table, "tenant_id", new_column_name="workspace_id")
+
+    op.alter_column(
+        "settings",
+        "scope_type",
+        type_=SETTINGS_SCOPE_NEW,
+        existing_type=SETTINGS_SCOPE_OLD,
+    )
     op.execute("UPDATE settings SET scope_type = 'workspace' WHERE scope_type = 'tenant'")
 
     if op.get_bind().dialect.name == "postgresql":
         for old, new in INDEX_RENAMES:
             op.execute(f"ALTER INDEX {old} RENAME TO {new}")
         for table, old, new in CONSTRAINT_RENAMES:
-            op.execute(
-                f"ALTER TABLE {table} RENAME CONSTRAINT {old} TO {new}"
-            )
+            op.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {old} TO {new}")
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     if op.get_bind().dialect.name == "postgresql":
         for table, old, new in CONSTRAINT_RENAMES:
-            op.execute(
-                f"ALTER TABLE {table} RENAME CONSTRAINT {new} TO {old}"
-            )
+            op.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {new} TO {old}")
         for old, new in INDEX_RENAMES:
             op.execute(f"ALTER INDEX {new} RENAME TO {old}")
 
     op.execute("UPDATE settings SET scope_type = 'tenant' WHERE scope_type = 'workspace'")
+    op.alter_column(
+        "settings",
+        "scope_type",
+        type_=SETTINGS_SCOPE_OLD,
+        existing_type=SETTINGS_SCOPE_NEW,
+    )
+
     for table in WORKSPACE_ID_TABLES:
         op.alter_column(table, "workspace_id", new_column_name="tenant_id")
     op.rename_table("workspaces", "tenants")

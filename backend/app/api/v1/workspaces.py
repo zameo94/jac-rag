@@ -24,7 +24,13 @@ from app.models import (
 )
 from app.schemas.membership import MembershipRole
 from app.schemas.setting import SettingScope
-from app.schemas.workspace import WorkspaceCreate, WorkspaceRead, WorkspaceUpdate, slugify_value
+from app.schemas.workspace import (
+    WorkspaceCreate,
+    WorkspaceRead,
+    WorkspaceReadWithRole,
+    WorkspaceUpdate,
+    slugify_value,
+)
 from app.services import storage
 from app.services.rag import vector_store
 
@@ -111,18 +117,22 @@ async def update_workspace(
     return workspace
 
 
-@router.get("", response_model=List[WorkspaceRead])
+@router.get("", response_model=List[WorkspaceReadWithRole])
 async def list_workspaces(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> List[Workspace]:
+) -> List[WorkspaceReadWithRole]:
     statement = (
-        select(Workspace)
+        select(Workspace, Membership.role)
         .join(Membership, Membership.workspace_id == Workspace.id)
         .where(Membership.user_id == current_user.id)
         .order_by(Workspace.id)
     )
-    return (await session.exec(statement)).all()
+    rows = (await session.exec(statement)).all()
+    return [
+        WorkspaceReadWithRole(**workspace.model_dump(), role=role)
+        for workspace, role in rows
+    ]
 
 
 @router.get("/{workspace_id}", response_model=WorkspaceRead)

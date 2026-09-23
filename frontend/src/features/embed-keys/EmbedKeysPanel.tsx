@@ -89,7 +89,11 @@ export function EmbedKeysPanel() {
 
   const scriptUrl = widgetScriptUrl();
   const snippet = scriptUrl
-    ? widgetSnippet(created ?? EMBED_KEY_PLACEHOLDER, scriptUrl)
+    ? widgetSnippet(
+        created ?? EMBED_KEY_PLACEHOLDER,
+        scriptUrl,
+        activeWorkspace?.default_locale ?? "it",
+      )
     : null;
 
   return (

@@ -7,18 +7,23 @@ from app.services.llm.base import LLMMessage, LLMRole
 from app.services.rag.vector_store import RetrievedChunk
 
 SUPPORTED_LOCALES = ("it", "en")
-FALLBACK_LOCALE = "it"
+FALLBACK_LOCALE = "en"
 
 REFUSALS = {
     "it": "Non ho trovato questa informazione nei documenti disponibili.",
     "en": "I could not find this information in the available documents.",
 }
 
+PROMPT_LABELS = {
+    "it": ("CONTESTO", "DOMANDA"),
+    "en": ("CONTEXT", "QUESTION"),
+}
+
 SYSTEM_STRICT = {
     "it": (
         "Rispondi esclusivamente usando il CONTESTO fornito. Se il contesto non "
         "contiene la risposta, dì che non lo sai. Non inventare informazioni. "
-        "Cita le fonti con [n]. Rispondi nella lingua della domanda. Quando la "
+        "Cita le fonti con [n]. Rispondi sempre in italiano. Quando la "
         "domanda indica un periodo o un documento (es. \"febbraio 22\"), usa SOLO "
         "i passaggi di quel documento e ignora valori simili di altri periodi. "
         "Se la domanda chiede un massimo, un minimo o un confronto, esamina TUTTE "
@@ -28,7 +33,7 @@ SYSTEM_STRICT = {
     "en": (
         "Answer using only the provided CONTEXT. If the context does not contain "
         "the answer, say that you do not know. Do not make up information. Cite "
-        "sources as [n]. Answer in the language of the question. When the question "
+        "sources as [n]. Always answer in English. When the question "
         "names a period or document (e.g. \"February 22\"), use ONLY the passages "
         "from that document and ignore similar values from other periods. If the "
         "question asks for a maximum, minimum or a comparison, review ALL options "
@@ -40,13 +45,13 @@ SYSTEM_STRICT = {
 SYSTEM_ASSISTIVE = {
     "it": (
         "Rispondi in modo utile. Se è presente un CONTESTO, privilegialo e citalo "
-        "con [n]. Rispondi nella lingua della domanda. Quando la domanda indica un "
+        "con [n]. Rispondi sempre in italiano. Quando la domanda indica un "
         "periodo o un documento, usa SOLO i passaggi di quel documento. Per "
         "massimi, minimi o confronti, esamina tutte le opzioni del contesto."
     ),
     "en": (
         "Answer helpfully. If a CONTEXT is present, prefer it and cite it as [n]. "
-        "Answer in the language of the question. When the question names a period "
+        "Always answer in English. When the question names a period "
         "or document, use ONLY the passages from that document. For maximums, "
         "minimums or comparisons, review all options in the context."
     ),
@@ -80,7 +85,8 @@ def build_messages(
             f"[{position}] {chunk.filename} (chunk {chunk.chunk_index}): {chunk.text}"
             for position, chunk in enumerate(chunks, start=1)
         )
-        user_content = f"CONTESTO:\n{context}\n\nDOMANDA: {question}"
+        context_label, question_label = PROMPT_LABELS[resolved]
+        user_content = f"{context_label}:\n{context}\n\n{question_label}: {question}"
     else:
         system = SYSTEM_ASSISTIVE[resolved]
         user_content = question

@@ -97,6 +97,9 @@ export const api = {
     me(): Promise<User> {
       return request("/auth/me");
     },
+    updateLocale(locale: string): Promise<User> {
+      return request("/auth/me", { method: "PATCH", body: { locale } });
+    },
   },
   workspaces: {
     list(): Promise<Workspace[]> {

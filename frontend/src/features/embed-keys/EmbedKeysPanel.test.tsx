@@ -10,7 +10,7 @@ vi.mock("@/features/auth/AuthProvider", () => ({
 }));
 
 vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
-  useWorkspace: () => ({ activeWorkspace: { id: 1 } }),
+  useWorkspace: () => ({ activeWorkspace: { id: 1, default_locale: "en" } }),
 }));
 
 const apiMock = vi.hoisted(() => ({
@@ -84,6 +84,7 @@ describe("EmbedKeysPanel", () => {
     expect(snippet).toHaveTextContent(
       'src="http://localhost:8080/embed-rag-chatbot.js"',
     );
+    expect(snippet).toHaveTextContent('data-locale="en"');
     expect(snippet).not.toHaveTextContent("data-api-url");
   });
 

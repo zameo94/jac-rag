@@ -1,11 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
 const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
 
 const apiMock = vi.hoisted(() => ({
-  members: { me: vi.fn() },
   workspaces: { update: vi.fn() },
 }));
 
@@ -18,8 +17,9 @@ const state = vi.hoisted(() => ({
       name: "Acme",
       slug: "acme",
       default_locale: "it",
-      answer_mode: "strict",
+      answer_mode: "strict" as const,
       is_active: true,
+      role: "OWNER" as "OWNER" | "ADMIN" | "MEMBER",
     },
   ],
 }));
@@ -78,43 +78,46 @@ import EditWorkspacePage from "@/app/[locale]/dashboard/workspaces/[id]/edit/pag
 beforeEach(() => {
   push.mockClear();
   refreshWorkspaces.mockClear();
-  apiMock.members.me.mockReset();
   apiMock.workspaces.update.mockReset();
-  apiMock.members.me.mockResolvedValue({ role: "OWNER" });
   state.id = "1";
   state.loading = false;
+  state.workspaces[0].role = "OWNER";
 });
 
 describe("EditWorkspacePage", () => {
-  it("shows the edit form for an admin", async () => {
+  it("shows the edit form for an owner", () => {
     render(<EditWorkspacePage />);
 
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Edit workspace" })).toBeInTheDocument(),
-    );
+    expect(
+      screen.getByRole("heading", { name: "Edit workspace" }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toHaveValue("Acme");
   });
 
-  it("shows a forbidden message for a member", async () => {
-    apiMock.members.me.mockResolvedValue({ role: "MEMBER" });
+  it("shows the edit form for an admin", () => {
+    state.workspaces[0].role = "ADMIN";
 
     render(<EditWorkspacePage />);
 
-    await waitFor(() =>
-      expect(
-        screen.getByText("You do not have permission to edit this workspace."),
-      ).toBeInTheDocument(),
-    );
+    expect(screen.getByLabelText("Name")).toHaveValue("Acme");
+  });
+
+  it("shows a forbidden message for a member", () => {
+    state.workspaces[0].role = "MEMBER";
+
+    render(<EditWorkspacePage />);
+
+    expect(
+      screen.getByText("You do not have permission to edit this workspace."),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
   });
 
-  it("shows a not found message for an unknown workspace", async () => {
+  it("shows a not found message for an unknown workspace", () => {
     state.id = "999";
 
     render(<EditWorkspacePage />);
 
-    await waitFor(() =>
-      expect(screen.getByText("Workspace not found.")).toBeInTheDocument(),
-    );
+    expect(screen.getByText("Workspace not found.")).toBeInTheDocument();
   });
 });

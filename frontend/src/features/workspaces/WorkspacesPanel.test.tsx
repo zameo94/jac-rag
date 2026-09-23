@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,31 +6,37 @@ const selectWorkspace = vi.fn();
 const refreshWorkspaces = vi.fn().mockResolvedValue(undefined);
 
 const apiMock = vi.hoisted(() => ({
-  members: { me: vi.fn() },
   workspaces: { remove: vi.fn() },
 }));
 
 const state = vi.hoisted(() => ({
-  workspaces: [
-    {
-      id: 1,
-      name: "Acme",
-      slug: "acme",
-      default_locale: "it",
-      answer_mode: "strict",
-      is_active: true,
-    },
-    {
-      id: 2,
-      name: "Beta",
-      slug: "beta",
-      default_locale: "it",
-      answer_mode: "strict",
-      is_active: true,
-    },
-  ],
+  workspaces: [] as {
+    id: number;
+    name: string;
+    slug: string;
+    default_locale: string;
+    answer_mode: "strict";
+    is_active: boolean;
+    role: "OWNER" | "ADMIN" | "MEMBER";
+  }[],
   activeWorkspaceId: 1,
 }));
+
+function workspace(
+  id: number,
+  name: string,
+  role: "OWNER" | "ADMIN" | "MEMBER",
+): (typeof state.workspaces)[number] {
+  return {
+    id,
+    name,
+    slug: name.toLowerCase(),
+    default_locale: "it",
+    answer_mode: "strict",
+    is_active: true,
+    role,
+  };
+}
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace: string) => {
@@ -64,7 +70,9 @@ vi.mock("@/i18n/navigation", () => ({
 vi.mock("@/features/workspaces/WorkspaceProvider", () => ({
   useWorkspace: () => ({
     workspaces: state.workspaces,
-    activeWorkspace: state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId),
+    activeWorkspace: state.workspaces.find(
+      (entry) => entry.id === state.activeWorkspaceId,
+    ),
     selectWorkspace,
     refreshWorkspaces,
   }),
@@ -77,31 +85,10 @@ import { WorkspacesPanel } from "@/features/workspaces/WorkspacesPanel";
 beforeEach(() => {
   selectWorkspace.mockClear();
   refreshWorkspaces.mockClear();
-  apiMock.members.me.mockReset();
   apiMock.workspaces.remove.mockReset();
-  apiMock.members.me.mockImplementation((id: number) =>
-    Promise.resolve({ role: id === 1 ? "OWNER" : "MEMBER" }),
-  );
   apiMock.workspaces.remove.mockResolvedValue(undefined);
   state.activeWorkspaceId = 1;
-  state.workspaces = [
-    {
-      id: 1,
-      name: "Acme",
-      slug: "acme",
-      default_locale: "it",
-      answer_mode: "strict",
-      is_active: true,
-    },
-    {
-      id: 2,
-      name: "Beta",
-      slug: "beta",
-      default_locale: "it",
-      answer_mode: "strict",
-      is_active: true,
-    },
-  ];
+  state.workspaces = [workspace(1, "Acme", "OWNER"), workspace(2, "Beta", "ADMIN")];
 });
 
 afterEach(() => {
@@ -143,16 +130,24 @@ describe("WorkspacesPanel", () => {
     expect(screen.getByText("No workspaces.")).toBeInTheDocument();
   });
 
-  it("shows the edit link only for workspaces the user can manage", async () => {
+  it("shows the edit link for owner and admin only", () => {
     render(<WorkspacesPanel />);
 
-    await waitFor(() =>
-      expect(screen.getAllByRole("link", { name: "Edit workspace" })).toHaveLength(1),
-    );
-    expect(screen.getByRole("link", { name: "Edit workspace" })).toHaveAttribute(
-      "href",
-      "/dashboard/workspaces/1/edit",
-    );
+    expect(screen.getAllByRole("link", { name: "Edit workspace" })).toHaveLength(2);
+  });
+
+  it("hides the edit link for a member", () => {
+    state.workspaces = [workspace(1, "Acme", "OWNER"), workspace(2, "Beta", "MEMBER")];
+
+    render(<WorkspacesPanel />);
+
+    expect(screen.getAllByRole("link", { name: "Edit workspace" })).toHaveLength(1);
+  });
+
+  it("shows the delete action for the owner only", () => {
+    render(<WorkspacesPanel />);
+
+    expect(screen.getAllByRole("button", { name: "Delete workspace" })).toHaveLength(1);
   });
 
   it("shows an inactive badge for a deactivated workspace", () => {
@@ -163,25 +158,14 @@ describe("WorkspacesPanel", () => {
     expect(screen.getByText("Inactive")).toBeInTheDocument();
   });
 
-  it("shows the delete action only for owned workspaces", async () => {
-    render(<WorkspacesPanel />);
-
-    await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Delete workspace" })).toHaveLength(1),
-    );
-  });
-
   it("deletes the workspace after confirmation", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     render(<WorkspacesPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Delete workspace" })).toBeInTheDocument(),
-    );
     await user.click(screen.getByRole("button", { name: "Delete workspace" }));
 
-    await waitFor(() => expect(apiMock.workspaces.remove).toHaveBeenCalledWith(1));
+    expect(apiMock.workspaces.remove).toHaveBeenCalledWith(1);
     expect(refreshWorkspaces).toHaveBeenCalled();
   });
 
@@ -190,9 +174,6 @@ describe("WorkspacesPanel", () => {
     const user = userEvent.setup();
     render(<WorkspacesPanel />);
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Delete workspace" })).toBeInTheDocument(),
-    );
     await user.click(screen.getByRole("button", { name: "Delete workspace" }));
 
     expect(apiMock.workspaces.remove).not.toHaveBeenCalled();
