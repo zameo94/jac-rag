@@ -1,5 +1,9 @@
 # jac-rag
 
+The code in this repo was entirely written by a coding agent (mostly DeepSeek
+V4.1 Flash). The idea, the architecture and the system design (especially the
+backend) were under human control (me :)).
+
 Multi-workspace RAG platform: each workspace uploads its own documents
 (PDF, DOCX, TXT, Markdown) and chats over them. The backend exposes a versioned
 API (`/api/v1`); the CMS is built with Next.js; the embeddable widget lives in a
