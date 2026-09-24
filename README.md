@@ -30,6 +30,7 @@ API (`/api/v1`); the CMS is built with Next.js; the embeddable widget lives in a
 - [Configuration](#configuration)
 - [Tests](#tests)
 - [MVP limitations](#mvp-limitations)
+- [License](#license)
 
 ---
 
@@ -467,3 +468,9 @@ errors, status codes, validation, workspace isolation.
 - No UI for retention beyond the on/off flag.
 - The [widget](https://github.com/zameo94/embed-rag-chatbot) is a separate repo:
   the CMS manages its keys and snippet, not the bundle.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE).
